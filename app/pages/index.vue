@@ -30,6 +30,13 @@
           <span class="char-role">ADVENTURER B</span>
         </div>
       </div>
+
+      <!-- 如果先前有登入紀錄，允許快速返回儀表板，避免選錯無法返回 -->
+      <div v-if="lastSavedPlayer" class="return-dashboard-wrapper">
+        <button class="btn-return-dashboard" @click="loginPlayer(lastSavedPlayer)">
+          返回儀表板 ➜ (繼續以 {{ lastSavedPlayer === 'A' ? playerAName : playerBName }} 冒險)
+        </button>
+      </div>
     </div>
 
     <!-- 情況 B：已選擇身分，顯示主儀表板 -->
@@ -48,7 +55,7 @@
         :active-player="activePlayer"
         :is-offline="isOffline"
         mode="compact"
-        @logout="logoutPlayer"
+        @switchPlayer="togglePlayer"
       />
 
       <!-- 錯誤/警告提示 -->
@@ -80,6 +87,7 @@
           :player-b-skips-used="playerBSkipsUsed"
           :player-b-has-skipped="hasSkippedB"
           :is-combo-active="isComboActiveToday"
+          :combo-category="comboCategory"
           :is-offline="isOffline"
           @use-skip="onUseSkip"
         />
@@ -131,7 +139,24 @@
 
       <!-- 3.5 養成報告分頁 (2.0 新增) -->
       <div v-if="currentNavTab === 'reports'" class="tab-view-content">
-        <!-- 過去 7 天養成足跡 (從任務頁面移至此處) -->
+        <!-- 滿版公會詳細進度大看板 (從首頁移到此處，置於報告最頂端) -->
+        <GuildHeader 
+          :guild-name="guildName"
+          :player-a-name="playerAName"
+          :player-b-name="playerBName"
+          :total-xp="totalXp" 
+          :player-a-balance="playerABalance"
+          :player-b-balance="playerBBalance"
+          :player-a-contribution="playerAContribution"
+          :player-b-contribution="playerBContribution"
+          :is-synergy-active="isSynergyActive"
+          :active-player="activePlayer"
+          :is-offline="isOffline"
+          mode="full"
+          style="margin-bottom: 1rem;"
+        />
+
+        <!-- 過去 7 天養成足跡 (從任務頁面移至此處，置於大看板下方) -->
         <div class="streaks-footprints-card game-card" style="margin-bottom: 1rem;">
           <div class="streaks-header">
             <span class="streaks-title">🗓️ 過去 7 天養成足跡</span>
@@ -148,42 +173,29 @@
               <div 
                 class="streak-dot"
                 :class="{ 
-                  'dot-combo': day.combo,
-                  'dot-partial': !day.combo && (day.pctA > 0 || day.pctB > 0),
+                  'dot-perfect': day.pctA === 100 && day.pctB === 100,
+                  'dot-combo-active': day.combo,
+                  'dot-partial': (day.pctA > 0 || day.pctB > 0) && !(day.pctA === 100 && day.pctB === 100),
                   'dot-empty': day.pctA === 0 && day.pctB === 0 
                 }"
               >
-                <!-- If Combo, show lightning bolt -->
-                <span v-if="day.combo" class="dot-lightning">⚡</span>
+                <!-- 完美日（雙方皆 100% 完成）顯示金星 -->
+                <span v-if="day.pctA === 100 && day.pctB === 100" class="dot-perfect-symbol">⭐</span>
                 <span v-else-if="day.pctA === 0 && day.pctB === 0" class="dot-empty-txt">⚪</span>
                 
-                <!-- Inner progress splits for partial -->
-                <div v-if="!day.combo && (day.pctA > 0 || day.pctB > 0)" class="partial-bars">
+                <!-- 非完美日，只要有進度，均如實顯示雙方進度比例條 -->
+                <div v-if="!(day.pctA === 100 && day.pctB === 100) && (day.pctA > 0 || day.pctB > 0)" class="partial-bars">
                   <div class="partial-bar bar-a" :style="{ height: `${day.pctA}%` }"></div>
                   <div class="partial-bar bar-b" :style="{ height: `${day.pctB}%` }"></div>
                 </div>
+
+                <!-- Combo（喝水共鳴）小型右上掛飾，不影響進度條顯示 -->
+                <span v-if="day.combo && !(day.pctA === 100 && day.pctB === 100)" class="dot-mini-lightning">⚡</span>
               </div>
               <span class="streak-day-label">{{ formatLocalDate(day.date) }}</span>
             </div>
           </div>
         </div>
-
-        <!-- 滿版公會詳細進度大看板 (從首頁移到此處) -->
-        <GuildHeader 
-          :guild-name="guildName"
-          :player-a-name="playerAName"
-          :player-b-name="playerBName"
-          :total-xp="totalXp" 
-          :player-a-balance="playerABalance"
-          :player-b-balance="playerBBalance"
-          :player-a-contribution="playerAContribution"
-          :player-b-contribution="playerBContribution"
-          :is-synergy-active="isSynergyActive"
-          :active-player="activePlayer"
-          :is-offline="isOffline"
-          mode="full"
-          style="margin-bottom: 1rem;"
-        />
 
         <HistoryPanel 
           :logs="logs"
@@ -352,11 +364,13 @@ watch(currentNavTab, () => {
 
 // 本地身分變數 (響應式)
 const activePlayer = ref<'A' | 'B' | null>(null)
+const lastSavedPlayer = ref<'A' | 'B' | null>(null)
 
 // 系統參數
 const guildName = computed(() => configData.value.GuildName || '雙人夢想解鎖板')
 const playerAName = computed(() => configData.value.PlayerAName || '萱')
 const playerBName = computed(() => configData.value.PlayerBName || '至')
+const comboCategory = computed(() => configData.value.ComboCategory || '飲水')
 const aiPrompt = computed(() => configData.value.AIPrompt || '')
 const weeklyQuota = computed(() => Number(configData.value.WeeklyQuota) || 2)
 
@@ -445,17 +459,17 @@ const playerBSkipsUsed = computed(() => getSkipsUsedThisWeek('B'))
 
 // 5. 判斷今日 Combo 是否啟動 (雙方當天都完成「飲水」類別任務，或有人使用請假券亦可維持)
 const isComboActiveToday = computed(() => {
-  const aDoneWater = completedQuestsAToday.value.some(id => {
+  const aDoneCombo = completedQuestsAToday.value.some(id => {
     const q = quests.value.find(quest => quest.Id === id)
-    return q?.Category === '飲水'
+    return q?.Category === comboCategory.value
   }) || hasSkippedA.value
 
-  const bDoneWater = completedQuestsBToday.value.some(id => {
+  const bDoneCombo = completedQuestsBToday.value.some(id => {
     const q = quests.value.find(quest => quest.Id === id)
-    return q?.Category === '飲水'
+    return q?.Category === comboCategory.value
   }) || hasSkippedB.value
 
-  return aDoneWater && bDoneWater
+  return aDoneCombo && bDoneCombo
 })
 
 // 6. 動態加總所有歷史完成任務獲得的累計 XP (只計正值，不隨兌換扣除，用來解鎖里程碑與升級)
@@ -474,21 +488,21 @@ const totalXp = computed(() => {
   let sum = 0
   Object.entries(logsByDate).forEach(([date, dayLogs]) => {
     let dayXp = 0
-    let hasWaterA = false
-    let hasWaterB = false
+    let hasComboA = false
+    let hasComboB = false
 
     dayLogs.forEach(log => {
       const q = quests.value.find(quest => quest.Id === log.QuestId)
-      const isWater = q ? q.Category === '飲水' : log.QuestId.includes('water')
+      const isComboTarget = q ? q.Category === comboCategory.value : (log.QuestId.includes('water') || log.QuestId.includes(comboCategory.value.toLowerCase()))
       const isSkip = log.IsSkipPass || log.QuestId === 'skip'
 
-      if (log.Player === 'A' && (isWater || isSkip)) hasWaterA = true
-      if (log.Player === 'B' && (isWater || isSkip)) hasWaterB = true
+      if (log.Player === 'A' && (isComboTarget || isSkip)) hasComboA = true
+      if (log.Player === 'B' && (isComboTarget || isSkip)) hasComboB = true
 
       dayXp += Number(log.XP) || 0
     })
 
-    if (hasWaterA && hasWaterB) {
+    if (hasComboA && hasComboB) {
       dayXp = dayXp * 1.2
     }
 
@@ -516,16 +530,16 @@ const playerStats = computed(() => {
   Object.entries(logsByDate).forEach(([date, dayLogs]) => {
     let aDayXp = 0
     let bDayXp = 0
-    let hasWaterA = false
-    let hasWaterB = false
+    let hasComboA = false
+    let hasComboB = false
 
     dayLogs.forEach(log => {
       const q = quests.value.find(quest => quest.Id === log.QuestId)
-      const isWater = q ? q.Category === '飲水' : log.QuestId.includes('water')
+      const isComboTarget = q ? q.Category === comboCategory.value : (log.QuestId.includes('water') || log.QuestId.includes(comboCategory.value.toLowerCase()))
       const isSkip = log.IsSkipPass || log.QuestId === 'skip'
 
-      if (log.Player === 'A' && (isWater || isSkip)) hasWaterA = true
-      if (log.Player === 'B' && (isWater || isSkip)) hasWaterB = true
+      if (log.Player === 'A' && (isComboTarget || isSkip)) hasComboA = true
+      if (log.Player === 'B' && (isComboTarget || isSkip)) hasComboB = true
 
       if (log.Player === 'A') {
         aDayXp += Number(log.XP) || 0
@@ -534,7 +548,7 @@ const playerStats = computed(() => {
       }
     })
 
-    if (hasWaterA && hasWaterB) {
+    if (hasComboA && hasComboB) {
       aDayXp = aDayXp * 1.2
       bDayXp = bDayXp * 1.2
     }
@@ -809,9 +823,9 @@ const past7DaysStats = computed(() => {
     const pctA = totalA > 0 ? (doneA / totalA) * 100 : 0
     const pctB = totalB > 0 ? (doneB / totalB) * 100 : 0
     
-    const waterCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedA
-    const waterCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedB
-    const combo = waterCompletedA && waterCompletedB
+    const comboCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === comboCategory.value) || hasSkippedA
+    const comboCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === comboCategory.value) || hasSkippedB
+    const combo = comboCompletedA && comboCompletedB
     
     stats.push({
       date: dateStr,
@@ -968,6 +982,7 @@ async function debugClearAllLogs() {
 // 14. 登入與登出身分
 function loginPlayer(player: 'A' | 'B') {
   activePlayer.value = player
+  lastSavedPlayer.value = player
   localStorage.setItem('wishcraft_player', player)
 }
 
@@ -976,17 +991,28 @@ function logoutPlayer() {
   localStorage.removeItem('wishcraft_player')
 }
 
+// 0ms 原地切換身分，不返回歡迎頁，大幅優化切換體驗
+function togglePlayer() {
+  if (activePlayer.value === 'A') {
+    loginPlayer('B')
+  } else if (activePlayer.value === 'B') {
+    loginPlayer('A')
+  }
+}
+
 onMounted(() => {
   // 1. 優先判斷網址 query 參數
   const p = route.query.player
   if (p === 'A' || p === 'B') {
     activePlayer.value = p
+    lastSavedPlayer.value = p
     localStorage.setItem('wishcraft_player', p)
   } else {
     // 2. 其次從本地 localStorage 讀取
     const saved = localStorage.getItem('wishcraft_player')
     if (saved === 'A' || saved === 'B') {
       activePlayer.value = saved as 'A' | 'B'
+      lastSavedPlayer.value = saved as 'A' | 'B'
     }
   }
   
@@ -1388,7 +1414,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
+  /* 允許右上角小閃電溢出顯示 */
+  overflow: visible;
   transition: var(--transition-smooth);
 }
 
@@ -1404,12 +1431,35 @@ onMounted(() => {
   font-weight: bold;
 }
 
-/* Combo 閃爍 */
-.dot-combo {
-  background: rgba(255, 183, 3, 0.08);
-  border-color: var(--neon-gold);
-  box-shadow: var(--shadow-neon-gold);
+/* 完美日（雙方皆 100% 完成）樣式 */
+.dot-perfect {
+  background: linear-gradient(135deg, rgba(255, 183, 3, 0.22), rgba(255, 92, 141, 0.22)) !important;
+  border-color: var(--neon-gold) !important;
+  box-shadow: 0 0 10px rgba(255, 183, 3, 0.4), inset 0 0 5px rgba(255, 183, 3, 0.2) !important;
   animation: synergy-pulse-anim 3s infinite ease-in-out;
+}
+
+.dot-perfect-symbol {
+  font-size: 0.85rem;
+  filter: drop-shadow(0 0 3px var(--neon-gold));
+  line-height: 1;
+}
+
+/* Combo 啟動時的金色微光邊緣 */
+.dot-combo-active {
+  border-color: rgba(255, 183, 3, 0.6) !important;
+  box-shadow: 0 0 6px rgba(255, 183, 3, 0.25);
+}
+
+/* 右上角迷你小閃電掛飾 */
+.dot-mini-lightning {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 0.55rem;
+  filter: drop-shadow(0 0 2px rgba(255, 183, 3, 0.9));
+  z-index: 10;
+  line-height: 1;
 }
 
 /* RWD 手機版養成足跡縮小，防止右側破圖裁切 */
@@ -1425,8 +1475,13 @@ onMounted(() => {
     width: 22px;
     height: 22px;
   }
-  .dot-lightning {
-    font-size: 0.6rem;
+  .dot-perfect-symbol {
+    font-size: 0.65rem;
+  }
+  .dot-mini-lightning {
+    top: -4px;
+    right: -4px;
+    font-size: 0.45rem;
   }
   .dot-empty-txt {
     font-size: 0.45rem;
@@ -1449,6 +1504,9 @@ onMounted(() => {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
+  /* 獨立圓形裁切，不干擾父層的小閃電定位 */
+  border-radius: 50%;
+  overflow: hidden;
 }
 
 .partial-bar {
@@ -1547,5 +1605,32 @@ onMounted(() => {
   background: rgba(255, 77, 109, 0.08);
   border-color: #ff4d6d;
   color: #fff;
+}
+
+/* 返回儀表板按鈕樣式 */
+.return-dashboard-wrapper {
+  margin-top: 2.2rem;
+  display: flex;
+  justify-content: center;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.btn-return-dashboard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.6rem 1.25rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-return-dashboard:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--neon-gold);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(255, 183, 3, 0.15);
 }
 </style>

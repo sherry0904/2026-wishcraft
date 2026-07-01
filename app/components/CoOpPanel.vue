@@ -64,7 +64,7 @@
           </svg>
         </div>
         <div class="combo-text">
-          <div class="combo-title">飲水 COMBO</div>
+          <div class="combo-title">{{ comboCategory || '飲水' }} COMBO</div>
           <div class="combo-mult">{{ isComboActive ? '1.2x 經驗加成' : '未啟動' }}</div>
         </div>
       </div>
@@ -146,6 +146,7 @@ const props = defineProps<{
   playerBHasSkipped: boolean
   // Combo 與離線狀態
   isComboActive: boolean
+  comboCategory?: string
   isOffline: boolean
 }>()
 

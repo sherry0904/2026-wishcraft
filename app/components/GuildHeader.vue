@@ -1,11 +1,10 @@
 <template>
   <div>
-    <!-- 2.0 新增：精簡版頂部常駐 Slim Header (高質感、不佔版幅) -->
+    <!-- 2.0 新增：精簡版頂部常駐 Slim Header (高質感、不佔版幅、固定於最上方) -->
     <div v-if="mode === 'compact'" class="guild-top-bar">
       <div class="top-bar-left">
-        <span class="top-bar-guild-icon">🏰</span>
         <span class="top-bar-guild-name">{{ guildName || '日常習慣養成公會' }}</span>
-        <span class="top-bar-level-badge">LV. {{ guildLevel }}</span>
+        <span class="top-bar-level-badge font-title">LV. {{ guildLevel }}</span>
       </div>
       
       <div class="top-bar-right" v-if="activePlayer">
@@ -14,7 +13,7 @@
           <span class="top-bar-player-name">{{ activePlayer === 'A' ? playerAName : playerBName }}</span>
           <span class="top-bar-balance">{{ activePlayer === 'A' ? playerABalance : playerBBalance }} XP</span>
         </div>
-        <button class="btn-top-bar-switch" @click="$emit('logout')">切換身分</button>
+        <button class="btn-top-bar-switch" @click="$emit('switchPlayer')">切換</button>
       </div>
     </div>
 
@@ -509,39 +508,44 @@ const playerClass = computed(() => {
    2.0 新增：頂部 Slim 導航列樣式
    ========================================== */
 .guild-top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  /* 負邊距完美抵消外層 padding，在行動端實現貼邊滿版 */
+  margin-left: -1.05rem;
+  margin-right: -1.05rem;
+  width: calc(100% + 2.1rem);
+  border-radius: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.55rem 0.85rem;
-  background: rgba(20, 24, 35, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  margin-bottom: 0.85rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  padding: 0.6rem 0.85rem;
+  background: rgba(20, 24, 35, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
 }
 
 .top-bar-left {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-}
-
-.top-bar-guild-icon {
-  font-size: 1.05rem;
+  gap: 0.35rem;
+  min-width: 0; /* 容許縮減 */
 }
 
 .top-bar-guild-name {
   font-weight: 850;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: #fff;
   letter-spacing: 0.3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 105px;
+  max-width: 140px; /* 放寬長度，防止隨便變 ... */
+  min-width: 0;
 }
 
 .top-bar-level-badge {
@@ -550,32 +554,37 @@ const playerClass = computed(() => {
   font-weight: 900;
   background: linear-gradient(135deg, var(--neon-gold), #ff9f1c);
   color: #000;
-  padding: 0.05rem 0.35rem;
-  border-radius: 5px;
-  line-height: 1.2;
+  padding: 0.08rem 0.3rem;
+  border-radius: 4px;
+  line-height: 1.1;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .top-bar-right {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  flex-shrink: 0;
 }
 
 .top-bar-user-pill {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.18rem 0.45rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 0.72rem;
   font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0; /* 防止收縮擠壓 */
 }
 
 .pill-a {
-  border-color: rgba(157, 78, 221, 0.25);
-  background: rgba(157, 78, 221, 0.06);
+  border-color: rgba(157, 78, 221, 0.3);
+  background: rgba(157, 78, 221, 0.08);
 }
 .pill-a .top-bar-avatar {
   background: var(--neon-purple);
@@ -585,8 +594,8 @@ const playerClass = computed(() => {
 }
 
 .pill-b {
-  border-color: rgba(0, 180, 216, 0.25);
-  background: rgba(0, 180, 216, 0.06);
+  border-color: rgba(0, 180, 216, 0.3);
+  background: rgba(0, 180, 216, 0.08);
 }
 .pill-b .top-bar-avatar {
   background: var(--neon-blue);
@@ -606,12 +615,13 @@ const playerClass = computed(() => {
   color: #fff;
   font-weight: 900;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .top-bar-player-name {
   color: #fff;
   font-size: 0.7rem;
-  max-width: 42px;
+  max-width: 45px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -621,17 +631,20 @@ const playerClass = computed(() => {
   font-family: var(--font-title);
   font-weight: 800;
   font-size: 0.7rem;
+  white-space: nowrap; /* 確保點數 XP 絕不斷行 */
 }
 
 .btn-top-bar-switch {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   padding: 0.2rem 0.45rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap; /* 確保按鈕文字絕不斷行 */
+  flex-shrink: 0;
   transition: var(--transition-smooth);
 }
 
@@ -641,11 +654,14 @@ const playerClass = computed(() => {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-@media (max-width: 360px) {
+@media (max-width: 375px) {
   .top-bar-guild-name {
-    max-width: 80px;
+    max-width: 90px;
   }
-  .top-bar-player-name {
+}
+
+@media (max-width: 320px) {
+  .top-bar-guild-name {
     display: none;
   }
 }

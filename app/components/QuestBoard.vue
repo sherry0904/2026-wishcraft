@@ -33,8 +33,7 @@
               `category-${getCategoryKey(quest.Category)}`,
               { 
                 'quest-completed': isQuestCompleted(quest.Id),
-                'quest-disabled': !activePlayer || hasSkipped,
-                'micro-active-item': isMicroMode[quest.Id] && !isQuestCompleted(quest.Id)
+                'quest-disabled': !activePlayer || hasSkipped
               }
             ]"
           >
@@ -55,20 +54,10 @@
               </div>
             </label>
 
-            <!-- 右側行為區：包含微習慣減壓切換開關與點數標籤 -->
+            <!-- 右側行為區：僅點數標籤 -->
             <div class="quest-actions-right">
-              <button 
-                v-if="!isQuestCompleted(quest.Id) && !hasSkipped && activePlayer"
-                class="btn-micro-toggle"
-                :class="{ 'micro-active': isMicroMode[quest.Id] }"
-                title="切換微習慣減壓模式 (獲得點數減半)"
-                @click="toggleMicroMode(quest.Id)"
-              >
-                🧘 <span class="micro-btn-text">減壓</span>
-              </button>
-              
-              <div class="quest-xp-badge" :class="{ 'xp-slashed': isMicroOrSlashed(quest.Id, quest.XP) }">
-                +{{ getDisplayXP(quest.Id, quest.XP) }} XP
+              <div class="quest-xp-badge">
+                +{{ quest.XP }} XP
               </div>
             </div>
           </div>
@@ -113,14 +102,10 @@
               </div>
             </div>
 
-            <!-- 夥伴右側點數標籤 (自動依據夥伴打卡紀錄顯示折半或足額點數) -->
+            <!-- 夥伴右側點數標籤 -->
             <div class="quest-actions-right">
-              <span v-if="isPartnerMicro(quest.Id, quest.XP) && (isPartnerQuestCompleted(quest.Id) && !partnerHasSkipped)" class="partner-micro-tag">🧘 減壓</span>
-              <div 
-                class="quest-xp-badge partner-xp" 
-                :class="{ 'xp-slashed': isPartnerMicro(quest.Id, quest.XP) && (isPartnerQuestCompleted(quest.Id) && !partnerHasSkipped) }"
-              >
-                +{{ getPartnerDisplayXP(quest.Id, quest.XP) }} XP
+              <div class="quest-xp-badge partner-xp">
+                +{{ quest.XP }} XP
               </div>
             </div>
           </div>
@@ -165,8 +150,6 @@ const emit = defineEmits<{
   (e: 'toggleQuest', payload: { questId: string; completed: boolean; xp: number }): void
 }>()
 
-// 紀錄每個任務是否開啟微習慣（減壓）模式的響應式狀態
-const isMicroMode = ref<Record<string, boolean>>({})
 
 // 夥伴名稱
 const partnerName = computed(() => {
@@ -274,45 +257,9 @@ function getCompletedQuestXP(questId: string, player: 'A' | 'B'): number | null 
   return log ? Number(log.XP) : null
 }
 
-// 前端顯示的 XP
-function getDisplayXP(questId: string, originalXp: number): number {
-  const me = props.activePlayer || 'A'
-  const earned = getCompletedQuestXP(questId, me)
-  if (earned !== null) return earned
-  
-  return isMicroMode.value[questId] ? Math.max(1, Math.round(originalXp / 2)) : originalXp
-}
-
-function isMicroOrSlashed(questId: string, originalXp: number): boolean {
-  const me = props.activePlayer || 'A'
-  const earned = getCompletedQuestXP(questId, me)
-  if (earned !== null) return earned < originalXp
-  return !!isMicroMode.value[questId]
-}
-
-// 夥伴前端顯示的 XP
-function getPartnerDisplayXP(questId: string, originalXp: number): number {
-  const partner = props.activePlayer === 'A' ? 'B' : 'A'
-  const earned = getCompletedQuestXP(questId, partner)
-  if (earned !== null) return earned
-  return originalXp
-}
-
-function isPartnerMicro(questId: string, originalXp: number): boolean {
-  const partner = props.activePlayer === 'A' ? 'B' : 'A'
-  const earned = getCompletedQuestXP(questId, partner)
-  return earned !== null && earned < originalXp
-}
-
-function toggleMicroMode(questId: string) {
-  isMicroMode.value[questId] = !isMicroMode.value[questId]
-}
-
-// 觸發切換
+// 觸發切換 (不折半，回歸正常 XP 加分)
 function handleToggle(questId: string, completed: boolean, originalXp: number) {
-  // 如果開啟了微習慣減壓，傳出折半的 XP 點數
-  const finalXp = isMicroMode.value[questId] ? Math.max(1, Math.round(originalXp / 2)) : originalXp
-  emit('toggleQuest', { questId, completed, xp: finalXp })
+  emit('toggleQuest', { questId, completed, xp: originalXp })
 }
 </script>
 
@@ -546,61 +493,6 @@ function handleToggle(questId: string, completed: boolean, originalXp: number) {
   border-color: rgba(0, 180, 216, 0.25);
   color: var(--neon-blue);
   box-shadow: 0 0 5px rgba(0, 180, 216, 0.1);
-}
-
-/* 🧘 減壓微習慣按鈕 */
-.btn-micro-toggle {
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--text-muted);
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-  transition: var(--transition-smooth);
-}
-
-.btn-micro-toggle:hover {
-  background: rgba(255, 183, 3, 0.05);
-  border-color: rgba(255, 183, 3, 0.2);
-  color: var(--neon-gold);
-}
-
-.btn-micro-toggle.micro-active {
-  background: rgba(255, 183, 3, 0.1);
-  border-color: var(--neon-gold);
-  color: var(--neon-gold);
-  box-shadow: var(--shadow-neon-gold);
-}
-
-.micro-btn-text {
-  font-size: 0.6rem;
-}
-
-.partner-micro-tag {
-  background: rgba(255, 183, 3, 0.05);
-  border: 1px solid rgba(255, 183, 3, 0.2);
-  color: var(--neon-gold);
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 0.15rem 0.35rem;
-  border-radius: 4px;
-}
-
-/* 減壓點數斜槓化樣式 */
-.xp-slashed {
-  color: var(--neon-gold) !important;
-  border-color: rgba(255, 183, 3, 0.3) !important;
-  background: rgba(255, 183, 3, 0.04) !important;
-}
-
-.micro-active-item {
-  border-color: rgba(255, 183, 3, 0.12);
-  background: rgba(255, 183, 3, 0.015);
 }
 
 /* 完成狀態樣式 */
