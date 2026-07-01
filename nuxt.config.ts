@@ -7,11 +7,11 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: '雙人共鬥：日常任務解鎖系統',
+      title: 'WishCraft：日常任務解鎖系統',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
-        { name: 'description', content: '雙人共鬥日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！' }
+        { name: 'description', content: 'WishCraft 日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！' }
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
