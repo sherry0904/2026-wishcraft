@@ -1,10 +1,11 @@
 <template>
   <header class="guild-header game-card">
+    <!-- 標題與登入身分列 -->
     <div class="header-main">
       <div class="guild-info">
         <div class="title-wrapper">
-          <h1 class="guild-title">{{ guildName || '日常習慣共鬥公會' }}</h1>
-          <span class="guild-subtitle">DAILY HABIT CO-OP GUILD</span>
+          <h1 class="guild-title">{{ guildName || '日常習慣養成公會' }}</h1>
+          <span class="guild-subtitle">DAILY HABIT COMPANION GUILD</span>
         </div>
         <div class="guild-level-badge">
           LV. {{ guildLevel }}
@@ -14,6 +15,41 @@
       <div class="player-identity" :class="playerClass">
         <span class="pulse-dot"></span>
         <span class="player-label">{{ playerStatusLabel }}</span>
+      </div>
+    </div>
+
+    <!-- 2.0 新增：雙人發光錢包與默契共鳴狀態區塊 -->
+    <div class="players-wallets-grid">
+      <!-- 玩家 A 錢包卡片 -->
+      <div class="wallet-card card-player-a" :class="{ 'card-active': activePlayer === 'A' }">
+        <div class="wallet-player-name">{{ playerAName }}</div>
+        <div class="wallet-balance-row">
+          <span class="wallet-xp-val text-neon-purple">{{ playerABalance }}</span>
+          <span class="wallet-xp-unit">XP 可用</span>
+        </div>
+        <div class="wallet-contribution-row">
+          生涯貢獻: {{ playerAContribution }} XP
+        </div>
+      </div>
+
+      <!-- 默契共鳴徽章 -->
+      <div class="synergy-status-wrapper">
+        <div class="synergy-badge" :class="{ 'synergy-active': isSynergyActive }">
+          <span class="synergy-icon">⚡</span>
+          <span class="synergy-text">{{ isSynergyActive ? '默契共鳴' : '尚未共鳴' }}</span>
+        </div>
+      </div>
+
+      <!-- 玩家 B 錢包卡片 -->
+      <div class="wallet-card card-player-b" :class="{ 'card-active': activePlayer === 'B' }">
+        <div class="wallet-player-name">{{ playerBName }}</div>
+        <div class="wallet-balance-row">
+          <span class="wallet-xp-val text-neon-blue">{{ playerBBalance }}</span>
+          <span class="wallet-xp-unit">XP 可用</span>
+        </div>
+        <div class="wallet-contribution-row">
+          生涯貢獻: {{ playerBContribution }} XP
+        </div>
       </div>
     </div>
 
@@ -56,6 +92,11 @@ const props = defineProps<{
   playerAName: string
   playerBName: string
   totalXp: number
+  playerABalance: number
+  playerBBalance: number
+  playerAContribution: number
+  playerBContribution: number
+  isSynergyActive: boolean
   activePlayer: 'A' | 'B' | null
   isOffline: boolean
 }>()
@@ -200,6 +241,126 @@ const playerClass = computed(() => {
   0% { transform: scale(0.9); opacity: 0.6; }
   50% { transform: scale(1.2); opacity: 1; }
   100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+/* 雙人發光錢包 */
+.players-wallets-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.wallet-card {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-player-a {
+  border-left: 3px solid var(--neon-purple);
+}
+.card-player-a.card-active {
+  background: rgba(157, 78, 221, 0.04);
+  border-color: var(--neon-purple);
+  box-shadow: 0 0 10px rgba(157, 78, 221, 0.12);
+}
+
+.card-player-b {
+  border-left: 3px solid var(--neon-blue);
+}
+.card-player-b.card-active {
+  background: rgba(0, 180, 216, 0.04);
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 10px rgba(0, 180, 216, 0.12);
+}
+
+.wallet-player-name {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 0.15rem;
+}
+
+.wallet-balance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  margin-bottom: 0.15rem;
+}
+
+.wallet-xp-val {
+  font-family: var(--font-title);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.wallet-xp-unit {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.wallet-contribution-row {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+}
+
+/* 默契共鳴標記 */
+.synergy-status-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.synergy-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 30px;
+  padding: 0.35rem 0.5rem;
+  transition: var(--transition-smooth);
+}
+
+.synergy-badge.synergy-active {
+  background: rgba(255, 183, 3, 0.08);
+  border-color: var(--neon-gold);
+  box-shadow: var(--shadow-neon-gold);
+  animation: synergy-pulse-anim 2s infinite ease-in-out;
+}
+
+.synergy-icon {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+.synergy-active .synergy-icon {
+  color: var(--neon-gold);
+  text-shadow: 0 0 5px var(--neon-gold);
+}
+
+.synergy-text {
+  font-size: 0.5rem;
+  font-weight: bold;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+.synergy-active .synergy-text {
+  color: var(--neon-gold);
+}
+
+@keyframes synergy-pulse-anim {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 /* 進度條 */

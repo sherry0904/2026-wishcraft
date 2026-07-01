@@ -40,6 +40,11 @@
         :player-a-name="playerAName"
         :player-b-name="playerBName"
         :total-xp="totalXp" 
+        :player-a-balance="playerABalance"
+        :player-b-balance="playerBBalance"
+        :player-a-contribution="playerAContribution"
+        :player-b-contribution="playerBContribution"
+        :is-synergy-active="isSynergyActive"
         :active-player="activePlayer"
         :is-offline="isOffline"
       />
@@ -68,7 +73,7 @@
       
       <!-- 1. 任務分頁 -->
       <div v-if="currentNavTab === 'quests'" class="tab-view-content">
-        <!-- 中間共鬥面板 -->
+        <!-- 中間狀態面板 -->
         <CoOpPanel 
           :active-player="activePlayer"
           :player-a-name="playerAName"
@@ -96,6 +101,7 @@
           :completed-quests-b="completedQuestsBToday"
           :has-skipped-a="hasSkippedA"
           :has-skipped-b="hasSkippedB"
+          :logs="logs"
           @toggle-quest="onToggleQuest"
         />
       </div>
@@ -104,15 +110,20 @@
       <div v-if="currentNavTab === 'shop'" class="tab-view-content">
         <LootDashboard 
           :total-xp="totalXp"
-          :current-balance="currentBalance"
+          :active-player="activePlayer"
+          :player-a-balance="playerABalance"
+          :player-b-balance="playerBBalance"
+          :player-a-name="playerAName"
+          :player-b-name="playerBName"
           :milestones="milestones"
           :shop-items="shopItems"
+          :gifts="gifts"
           :is-redeeming="isRedeeming"
-          @redeem-reward="onRedeemReward"
+          @refresh-data="fetchAllData"
         />
       </div>
 
-      <!-- 3. 點數存摺分頁 -->
+      <!-- 3. 點數存摺分頁 (僅顯示點數收支明細，去掉日週月報告) -->
       <div v-if="currentNavTab === 'ledger'" class="tab-view-content game-card">
         <HistoryPanel 
           :logs="logs"
@@ -121,6 +132,57 @@
           :shop-items="shopItems"
           :player-a-name="playerAName"
           :player-b-name="playerBName"
+          mode="ledger"
+        />
+      </div>
+
+      <!-- 3.5 養成報告分頁 (2.0 新增) -->
+      <div v-if="currentNavTab === 'reports'" class="tab-view-content">
+        <!-- 過去 7 天養成足跡 (從任務頁面移至此處) -->
+        <div class="streaks-footprints-card game-card" style="margin-bottom: 1rem;">
+          <div class="streaks-header">
+            <span class="streaks-title">🗓️ 過去 7 天養成足跡</span>
+            <span class="streaks-subtitle font-title">PAST 7 DAYS STREAKS</span>
+          </div>
+          
+          <div class="streaks-dots-container">
+            <div 
+              v-for="day in past7DaysStats" 
+              :key="day.date" 
+              class="streak-dot-wrapper"
+              :title="`${day.date} 完成：${playerAName} ${day.doneA}/${day.totalA}，${playerBName} ${day.doneB}/${day.totalB}`"
+            >
+              <div 
+                class="streak-dot"
+                :class="{ 
+                  'dot-combo': day.combo,
+                  'dot-partial': !day.combo && (day.pctA > 0 || day.pctB > 0),
+                  'dot-empty': day.pctA === 0 && day.pctB === 0 
+                }"
+              >
+                <!-- If Combo, show lightning bolt -->
+                <span v-if="day.combo" class="dot-lightning">⚡</span>
+                <span v-else-if="day.pctA === 0 && day.pctB === 0" class="dot-empty-txt">⚪</span>
+                
+                <!-- Inner progress splits for partial -->
+                <div v-if="!day.combo && (day.pctA > 0 || day.pctB > 0)" class="partial-bars">
+                  <div class="partial-bar bar-a" :style="{ height: `${day.pctA}%` }"></div>
+                  <div class="partial-bar bar-b" :style="{ height: `${day.pctB}%` }"></div>
+                </div>
+              </div>
+              <span class="streak-day-label">{{ formatLocalDate(day.date) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <HistoryPanel 
+          :logs="logs"
+          :quests="quests"
+          :milestones="milestones"
+          :shop-items="shopItems"
+          :player-a-name="playerAName"
+          :player-b-name="playerBName"
+          mode="reports"
         />
       </div>
 
@@ -136,6 +198,46 @@
           :is-saving="isSavingConfig"
           @save-config="onSaveConfig"
         />
+
+        <!-- 2.0 新增：⚙️ 測試模擬沙箱 (TEST SANDBOX) -->
+        <div class="debug-sandbox-card game-card">
+          <h3 class="debug-title text-neon-gold">⚙️ 測試模擬沙箱 (TEST SANDBOX)</h3>
+          <p class="debug-desc">此區塊提供一鍵模擬加分、卡片生成，方便您在日常尚未完成時快速體驗商店兌換、寫卡片送禮與扭蛋盲盒功能。</p>
+          
+          <div v-if="!activePlayer" class="debug-alert">
+            💡 請先在上方登入一個玩家身分 (萱或至)，才能進行模擬點數測試。
+          </div>
+          <div v-else class="debug-actions-grid">
+            <button 
+              class="btn-debug" 
+              :disabled="activeDebugAction !== null" 
+              @click="debugAddXP(100, 'xp100')"
+            >
+              {{ activeDebugAction === 'xp100' ? '⚡ 正在加點...' : '💰 獲得 +100 XP (測試扭蛋)' }}
+            </button>
+            <button 
+              class="btn-debug" 
+              :disabled="activeDebugAction !== null" 
+              @click="debugAddXP(500, 'xp500')"
+            >
+              {{ activeDebugAction === 'xp500' ? '⚡ 正在加點...' : '👑 獲得 +500 XP (快速升級)' }}
+            </button>
+            <button 
+              class="btn-debug btn-debug-accent" 
+              :disabled="activeDebugAction !== null" 
+              @click="debugCreateTestGift"
+            >
+              {{ activeDebugAction === 'gift' ? '⚡ 正在接收...' : '🎁 收到測試卡片' }}
+            </button>
+            <button 
+              class="btn-debug btn-debug-danger" 
+              :disabled="activeDebugAction !== null" 
+              @click="debugClearAllLogs"
+            >
+              {{ activeDebugAction === 'clear' ? '🧹 正在清空試算表與數據...' : '🧹 一鍵清空所有歷史紀錄' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 底部防滑固定導航列 -->
@@ -176,6 +278,19 @@
           </svg>
           <span>存摺</span>
         </button>
+
+        <button 
+          class="nav-item" 
+          :class="{ 'nav-active': currentNavTab === 'reports' }" 
+          @click="currentNavTab = 'reports'"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span>報告</span>
+        </button>
         
         <button 
           class="nav-item" 
@@ -205,6 +320,7 @@ const route = useRoute()
 const quests = ref<Quest[]>([])
 const milestones = ref<Milestone[]>([])
 const shopItems = ref<Milestone[]>([])
+const gifts = ref<any[]>([])
 const logs = ref<any[]>([])
 const configData = ref<Record<string, any>>({})
 
@@ -214,9 +330,10 @@ const isSavingConfig = ref(false)
 const isRedeeming = ref(false)
 const errorMessage = ref('')
 const warningMessage = ref('')
+const activeDebugAction = ref<'xp100' | 'xp500' | 'gift' | 'clear' | null>(null)
 
-// 分頁選取 ('quests' | 'shop' | 'ledger' | 'settings')
-const currentNavTab = ref<'quests' | 'shop' | 'ledger' | 'settings'>('quests')
+// 分頁選取 ('quests' | 'shop' | 'ledger' | 'reports' | 'settings')
+const currentNavTab = ref<'quests' | 'shop' | 'ledger' | 'reports' | 'settings'>('quests')
 
 // 監聽分頁切換，自動將視窗滾動置頂，提供順暢的 App 切換體驗
 watch(currentNavTab, () => {
@@ -279,7 +396,7 @@ const completedQuestsAToday = computed(() => {
     return quests.value.filter(q => (q.Player === 'A' || q.Player === 'Both') && q.Active).map(q => q.Id)
   }
   return logs.value
-    .filter(l => l.Player === 'A' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass)
+    .filter(l => l.Player === 'A' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
     .map(l => l.QuestId)
 })
 
@@ -288,7 +405,7 @@ const completedQuestsBToday = computed(() => {
     return quests.value.filter(q => (q.Player === 'B' || q.Player === 'Both') && q.Active).map(q => q.Id)
   }
   return logs.value
-    .filter(l => l.Player === 'B' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass)
+    .filter(l => l.Player === 'B' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
     .map(l => l.QuestId)
 })
 
@@ -371,12 +488,11 @@ const totalXp = computed(() => {
   return Math.round(sum)
 })
 
-// 7. 計算當前夢想金庫剩餘可用點數 (包含 Combo 經驗加成，並扣除已兌換花費點數)
-const currentBalance = computed(() => {
+// 7. 計算雙方各自的餘額與累計貢獻
+const playerStats = computed(() => {
   const logsByDate: Record<string, any[]> = {}
   logs.value.forEach(log => {
-    if (log.QuestId.startsWith('redeem_')) return // 忽略兌換扣點日誌，下方單獨減去
-
+    if (log.QuestId.startsWith('redeem_')) return
     const localDateStr = parseToLocalDateStr(log.Date)
     if (!logsByDate[localDateStr]) {
       logsByDate[localDateStr] = []
@@ -384,9 +500,12 @@ const currentBalance = computed(() => {
     logsByDate[localDateStr].push(log)
   })
 
-  let earnedXp = 0
+  let aEarned = 0
+  let bEarned = 0
+
   Object.entries(logsByDate).forEach(([date, dayLogs]) => {
-    let dayXp = 0
+    let aDayXp = 0
+    let bDayXp = 0
     let hasWaterA = false
     let hasWaterB = false
 
@@ -398,22 +517,74 @@ const currentBalance = computed(() => {
       if (log.Player === 'A' && (isWater || isSkip)) hasWaterA = true
       if (log.Player === 'B' && (isWater || isSkip)) hasWaterB = true
 
-      dayXp += Number(log.XP) || 0
+      if (log.Player === 'A') {
+        aDayXp += Number(log.XP) || 0
+      } else if (log.Player === 'B') {
+        bDayXp += Number(log.XP) || 0
+      }
     })
 
     if (hasWaterA && hasWaterB) {
-      dayXp = dayXp * 1.2
+      aDayXp = aDayXp * 1.2
+      bDayXp = bDayXp * 1.2
     }
 
-    earnedXp += dayXp
+    aEarned += aDayXp
+    bEarned += bDayXp
   })
 
-  // 累加所有的兌換扣點數（通常為負數，例如 -300）
-  const spentXp = logs.value
-    .filter(log => log.QuestId.startsWith('redeem_'))
+  // 累加所有的兌換扣點數（通常為負數）
+  const aSpent = logs.value
+    .filter(log => log.Player === 'A' && log.QuestId.startsWith('redeem_'))
     .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
 
-  return Math.max(Math.round(earnedXp) + spentXp, 0)
+  const bSpent = logs.value
+    .filter(log => log.Player === 'B' && log.QuestId.startsWith('redeem_'))
+    .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
+
+  const aContribution = Math.round(aEarned)
+  const bContribution = Math.round(bEarned)
+  const aBalance = Math.max(aContribution + aSpent, 0)
+  const bBalance = Math.max(bContribution + bSpent, 0)
+
+  return {
+    aContribution,
+    bContribution,
+    aBalance,
+    bBalance
+  }
+})
+
+const playerABalance = computed(() => playerStats.value.aBalance)
+const playerBBalance = computed(() => playerStats.value.bBalance)
+const playerAContribution = computed(() => playerStats.value.aContribution)
+const playerBContribution = computed(() => playerStats.value.bContribution)
+
+const currentBalance = computed(() => {
+  if (activePlayer.value === 'A') return playerABalance.value
+  if (activePlayer.value === 'B') return playerBBalance.value
+  return 0
+})
+
+// 偵測今天是否雙方都有打卡完成 (啟動默契共鳴)
+const isSynergyActive = computed(() => {
+  const todayStr = getTodayDateStr()
+  
+  const aDone = logs.value.some(l => 
+    l.Player === 'A' && 
+    parseToLocalDateStr(l.Date) === todayStr && 
+    !l.IsSkipPass && 
+    !l.QuestId.startsWith('redeem_')
+  )
+  
+  const bDone = logs.value.some(l => 
+    l.Player === 'B' && 
+    parseToLocalDateStr(l.Date) === todayStr && 
+    !l.IsSkipPass && 
+    !l.QuestId.startsWith('redeem_')
+  )
+  
+  return aDone && bDone
 })
 
 
@@ -445,6 +616,7 @@ async function fetchAllData() {
     quests.value = data.quests || []
     milestones.value = data.milestones || []
     shopItems.value = data.shopItems || []
+    gifts.value = data.gifts || []
     logs.value = data.logs || []
     configData.value = data.config || {}
     isOffline.value = !!data.offline
@@ -456,12 +628,8 @@ async function fetchAllData() {
       errorMessage.value = data.error
     }
 
-    // 記錄上次 XP 值，用以偵測是否新解鎖里程碑
-    const currentTotal = totalXp.value
-    if (lastXpVal !== 0 && currentTotal > lastXpVal) {
-      checkMilestoneUnlock(currentTotal, lastXpVal)
-    }
-    lastXpVal = currentTotal
+    // 記錄上次 XP 值，用於打卡解鎖判定
+    lastXpVal = totalXp.value
 
   } catch (err: any) {
     errorMessage.value = '無法連接伺服器 API，請確認後端是否正常運作。'
@@ -602,55 +770,190 @@ async function onSaveConfig(payload: { guildName: string; playerAName: string; p
   }
 }
 
-// 13. 夢想商店扣點兌換獎勵
-async function onRedeemReward(milestone: any) {
-  if (isRedeeming.value) return
-  isRedeeming.value = true
+// 2.0 新增：自定義計算過去七天進度與足跡
+const past7DaysStats = computed(() => {
+  const stats = []
+  const today = new Date()
+  
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+    
+    const dayLogs = logs.value.filter(l => parseToLocalDateStr(l.Date) === dateStr)
+    const hasSkippedA = dayLogs.some(l => l.Player === 'A' && l.QuestId === 'skip')
+    const hasSkippedB = dayLogs.some(l => l.Player === 'B' && l.QuestId === 'skip')
+    
+    const totalA = quests.value.filter(q => (q.Player === 'A' || q.Player === 'Both') && q.Active).length
+    const totalB = quests.value.filter(q => (q.Player === 'B' || q.Player === 'Both') && q.Active).length
+    
+    let doneA = dayLogs.filter(l => l.Player === 'A' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')).length
+    let doneB = dayLogs.filter(l => l.Player === 'B' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')).length
+    
+    if (hasSkippedA) doneA = totalA
+    if (hasSkippedB) doneB = totalB
+    
+    const pctA = totalA > 0 ? (doneA / totalA) * 100 : 0
+    const pctB = totalB > 0 ? (doneB / totalB) * 100 : 0
+    
+    const waterCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedA
+    const waterCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedB
+    const combo = waterCompletedA && waterCompletedB
+    
+    stats.push({
+      date: dateStr,
+      doneA,
+      totalA,
+      pctA,
+      doneB,
+      totalB,
+      pctB,
+      combo
+    })
+  }
+  return stats
+})
 
-  const oldLogs = [...logs.value]
-  const tempLog = {
+function formatLocalDate(dateVal: any): string {
+  const localStr = parseToLocalDateStr(dateVal)
+  if (!localStr) return ''
+  const parts = localStr.split('-')
+  if (parts.length >= 3) {
+    return `${parts[1]}/${parts[2]}`
+  }
+  return localStr
+}
+
+// 2.0 新增：⚙️ 測試沙箱工具功能 (導入樂觀更新技術以提供 0ms 極致無延遲體驗，並配合 activeDebugAction 鎖定防範 Race Condition)
+async function debugAddXP(amount: number, actionKey: 'xp100' | 'xp500') {
+  if (!activePlayer.value || activeDebugAction.value) return
+  activeDebugAction.value = actionKey
+  
+  // 1. 樂觀更新：立刻在前端暫存寫入一筆臨時日誌，讓點數和圓點數值在 0 毫秒內同步反應！
+  const tempId = 'debug_xp_temp_' + Date.now()
+  logs.value.push({
     Timestamp: new Date().toISOString(),
     Date: todayStr,
-    Player: activePlayer.value || 'A',
-    QuestId: `redeem_tier_${milestone.Tier}`,
-    XP: -milestone.XPThreshold,
+    Player: activePlayer.value,
+    QuestId: tempId,
+    XP: amount,
     IsSkipPass: false
-  }
-
-  // 本地樂觀更新
-  logs.value.push(tempLog)
-
+  })
+  
+  triggerConfetti()
+  
   try {
-    const res = await $fetch<any>('/api/sync-quest', {
+    // 2. 背景默默向後端發送寫入請求 (約需要 2 秒連動 Sheets)
+    await $fetch<any>('/api/sync-quest', {
       method: 'POST',
       body: {
-        player: activePlayer.value || 'A',
-        questId: `redeem_tier_${milestone.Tier}`,
+        player: activePlayer.value,
+        questId: 'debug_xp_' + Date.now(),
         date: todayStr,
         completed: true,
-        xp: -milestone.XPThreshold
+        xp: amount
       }
     })
-
-    if (res.warning) {
-      warningMessage.value = res.warning
-    }
-    
-    // 成功兌換時噴灑滿版彩帶慶祝！
-    confetti({
-      particleCount: 150,
-      spread: 80,
-      origin: { y: 0.6 }
-    })
-    
+    // 3. 成功後重新載入並覆蓋，確保資料最終一致性
     await fetchAllData()
   } catch (err: any) {
-    logs.value = oldLogs
-    errorMessage.value = err.data?.message || '兌換失敗，請重試。'
+    // 4. 若失敗則回滾
+    logs.value = logs.value.filter(l => l.QuestId !== tempId)
+    alert(`Debug 加點失敗: ${err.message}`)
   } finally {
-    isRedeeming.value = false
+    activeDebugAction.value = null
   }
 }
+
+async function debugCreateTestGift() {
+  if (!activePlayer.value || activeDebugAction.value) return
+  activeDebugAction.value = 'gift'
+  
+  const buyer = activePlayer.value
+  const partner = buyer === 'A' ? 'B' : 'A'
+  const tempGiftId = 'debug_gift_temp_' + Date.now()
+  
+  // 1. 樂觀更新：在 0ms 內在您的卡盒裡直接顯示未使用的卡片！
+  gifts.value.push({
+    Id: tempGiftId,
+    Sender: partner,
+    Receiver: buyer,
+    RewardName: '☕ 測試愛心咖啡卡',
+    Message: '這是一張由開發沙箱產生的測試卡片！點選使用看看吧！',
+    Timestamp: new Date().toISOString(),
+    Used: false,
+    AttachedXp: 0
+  })
+  
+  triggerConfetti()
+  
+  try {
+    // 2. 背景發送
+    await $fetch<any>('/api/send-gift', {
+      method: 'POST',
+      body: {
+        sender: partner,
+        receiver: buyer,
+        rewardName: '☕ 測試愛心咖啡卡',
+        message: '這是一張由開發沙箱產生的測試卡片！點選使用看看吧！',
+        xp: 0,
+        tier: 99,
+        attachedXp: 0
+      }
+    })
+    await fetchAllData()
+  } catch (err: any) {
+    // 3. 失敗則回滾
+    gifts.value = gifts.value.filter(g => g.Id !== tempGiftId)
+    alert(`Debug 生成禮物卡失敗: ${err.message}`)
+  } finally {
+    activeDebugAction.value = null
+  }
+}
+
+async function debugClearAllLogs() {
+  if (activeDebugAction.value) return
+  if (!confirm('⚠️ 確定要清空所有交易、打卡與請假歷史紀錄嗎？清空後錢包會歸零重置。')) return
+  activeDebugAction.value = 'clear'
+  
+  // 1. 樂觀更新：在 0ms 內清空前端數值，讓所有點數和歷史在眼前瞬間消失，體驗乾淨俐落！
+  const oldLogs = [...logs.value]
+  const oldGifts = [...gifts.value]
+  logs.value = []
+  gifts.value = []
+  
+  try {
+    // 2. 進行後端與試算表清空 (在線上模式下會實時清空 Google Sheets 工作表)
+    const res = await $fetch<any>('/api/reset-db', {
+      method: 'POST'
+    })
+    
+    if (res.error) {
+      // 失敗回滾
+      logs.value = oldLogs
+      gifts.value = oldGifts
+      alert(res.error)
+      return
+    }
+    
+    // 3. 資料重新載入對齊
+    await fetchAllData()
+    // 4. 時序正確：確認後端也清除乾淨後，最後才跳出提示
+    alert('🧹 本地模擬資料庫與雲端 Google Sheets (若為線上) 已成功重置歸零！')
+  } catch (err: any) {
+    // 失敗回滾
+    logs.value = oldLogs
+    gifts.value = oldGifts
+    alert(`Debug 重置資料庫失敗: ${err.message}`)
+  } finally {
+    activeDebugAction.value = null
+  }
+}
+
+
 
 // 14. 登入與登出身分
 function loginPlayer(player: 'A' | 'B') {
@@ -1022,5 +1325,217 @@ onMounted(() => {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* 🗓️ 過去 7 天養成足跡樣式 */
+.streaks-footprints-card {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-top: 2px solid var(--neon-gold);
+}
+
+.streaks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.streaks-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.streaks-subtitle {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.streaks-dots-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.streak-dot-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.streak-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.dot-empty-txt {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.1);
+}
+
+.streak-day-label {
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: bold;
+}
+
+/* Combo 閃爍 */
+.dot-combo {
+  background: rgba(255, 183, 3, 0.08);
+  border-color: var(--neon-gold);
+  box-shadow: var(--shadow-neon-gold);
+  animation: synergy-pulse-anim 3s infinite ease-in-out;
+}
+
+/* RWD 手機版養成足跡縮小，防止右側破圖裁切 */
+@media (max-width: 480px) {
+  .streaks-footprints-card {
+    padding: 0.75rem 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .streaks-dots-container {
+    gap: 0.2rem;
+  }
+  .streak-dot {
+    width: 22px;
+    height: 22px;
+  }
+  .dot-lightning {
+    font-size: 0.6rem;
+  }
+  .dot-empty-txt {
+    font-size: 0.45rem;
+  }
+  .streak-day-label {
+    font-size: 0.52rem;
+    letter-spacing: -0.5px;
+  }
+}
+
+.dot-lightning {
+  font-size: 0.8rem;
+  color: var(--neon-gold);
+  text-shadow: 0 0 5px var(--neon-gold);
+  font-weight: 900;
+}
+
+/* 部分完成: 萱與至的進度條左右上升 */
+.partial-bars {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+}
+
+.partial-bar {
+  flex: 1;
+  align-self: flex-end;
+  transition: height 0.6s ease;
+  opacity: 0.6;
+}
+
+.bar-a {
+  background: var(--neon-purple);
+}
+
+.bar-b {
+  background: var(--neon-blue);
+}
+
+@keyframes synergy-pulse-anim {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* ⚙️ 測試沙箱樣式 */
+.debug-sandbox-card {
+  margin-top: 1.5rem;
+  border-top: 2px solid var(--neon-purple);
+}
+
+.debug-title {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+}
+
+.debug-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 1.25rem;
+}
+
+.debug-alert {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.debug-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.btn-debug {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  text-align: center;
+}
+
+.btn-debug:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.btn-debug-accent {
+  border-color: rgba(157, 78, 221, 0.3);
+  color: #c8b6ff;
+}
+
+.btn-debug-accent:hover {
+  background: rgba(157, 78, 221, 0.08);
+  border-color: var(--neon-purple);
+  color: #fff;
+}
+
+.btn-debug-danger {
+  border-color: rgba(255, 77, 109, 0.3);
+  color: #ff4d6d;
+}
+
+.btn-debug-danger:hover {
+  background: rgba(255, 77, 109, 0.08);
+  border-color: #ff4d6d;
+  color: #fff;
 }
 </style>

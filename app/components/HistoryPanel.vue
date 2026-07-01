@@ -1,7 +1,7 @@
 <template>
   <div class="history-panel">
-    <!-- 分頁切換鈕 (置於頂部) -->
-    <div class="panel-header-tabs">
+    <!-- 分頁切換鈕 (置於頂部，多於一個分頁時才顯示) -->
+    <div v-if="tabs.length > 1" class="panel-header-tabs">
       <button 
         v-for="tab in tabs" 
         :key="tab.id"
@@ -159,15 +159,29 @@ const props = defineProps<{
   shopItems: any[]
   playerAName: string
   playerBName: string
+  mode?: 'ledger' | 'reports'
 }>()
 
-const tabs = [
-  { id: 'logs', name: '點數存摺明細' },
-  { id: 'weekly', name: '日週完成率' },
-  { id: 'monthly', name: '月度統計戰報' }
-]
+const tabs = computed(() => {
+  if (props.mode === 'ledger') {
+    return [
+      { id: 'logs', name: '點數存摺明細' }
+    ]
+  }
+  if (props.mode === 'reports') {
+    return [
+      { id: 'weekly', name: '日週完成率' },
+      { id: 'monthly', name: '月度統計戰報' }
+    ]
+  }
+  return [
+    { id: 'logs', name: '點數存摺明細' },
+    { id: 'weekly', name: '日週完成率' },
+    { id: 'monthly', name: '月度統計戰報' }
+  ]
+})
 
-const activeTab = ref('logs')
+const activeTab = ref(props.mode === 'reports' ? 'weekly' : 'logs')
 
 // 輔助函數：日期時區修正
 function parseToLocalDateStr(dateVal: any): string {
@@ -670,5 +684,36 @@ const monthlyStats = computed(() => {
   font-family: var(--font-title);
   font-size: 0.95rem;
   font-weight: bold;
+}
+
+/* RWD 手機版優化：釋放內邊距，防止進度條文字太貼邊 */
+@media (max-width: 576px) {
+  .day-stat-card {
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.5rem !important;
+  }
+  .stat-date-info {
+    gap: 0.5rem !important;
+  }
+  .stat-day {
+    font-size: 0.8rem !important;
+  }
+  .players-progress-row {
+    gap: 0.5rem !important;
+  }
+  .player-progress-col {
+    min-width: 90px !important;
+    gap: 0.35rem !important;
+  }
+  .player-small-name {
+    width: 32px !important;
+    font-size: 0.68rem !important;
+  }
+  .progress-mini-bar {
+    height: 3px !important;
+  }
+  .progress-fraction {
+    font-size: 0.65rem !important;
+  }
 }
 </style>

@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
       quests: db.quests,
       milestones: db.milestones,
       shopItems: db.shopItems,
+      gifts: db.gifts || [],
       logs: db.logs,
       config: db.config,
       offline: true
@@ -25,11 +26,24 @@ export default defineEventHandler(async (event) => {
     })
     
     const db = getLocalDb()
+    const finalShopItems = response.shopItems || db.shopItems
+    
+    // 動態注入自訂驚喜兌現券商品，免除使用者手動修改 Sheets 欄位的負擔
+    if (Array.isArray(finalShopItems) && !finalShopItems.some((i: any) => Number(i.Tier) === 8)) {
+      finalShopItems.push({
+        Tier: 8,
+        XPThreshold: 150,
+        RewardName: '🎨 自訂驚喜兌現券',
+        Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！',
+        Unlocked: false
+      })
+    }
     
     return {
       quests: response.quests || [],
       milestones: response.milestones || [],
-      shopItems: response.shopItems || db.shopItems, // 若 GAS 尚未回傳，則降級套用預設商店清單
+      shopItems: finalShopItems,
+      gifts: response.gifts || db.gifts || [],
       logs: response.logs || [],
       config: response.config || {},
       offline: false
@@ -43,6 +57,7 @@ export default defineEventHandler(async (event) => {
       quests: db.quests,
       milestones: db.milestones,
       shopItems: db.shopItems,
+      gifts: db.gifts || [],
       logs: db.logs,
       config: db.config,
       offline: true,

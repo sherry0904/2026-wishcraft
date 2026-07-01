@@ -238,6 +238,14 @@
       "RewardName": "神兵利器升級基金",
       "Description": "存入 10,000 元作為家電或娛樂設備升級金",
       "Unlocked": false
+    },
+    {
+      "Tier": 8,
+      "XPThreshold": 150,
+      "RewardName": "🎨 自訂驚喜兌現券",
+      "Description": "花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！",
+      "Unlocked": false
     }
-  ]
+  ],
+  "gifts": []
 }

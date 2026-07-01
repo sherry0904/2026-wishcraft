@@ -32,10 +32,22 @@ export interface LocalLog {
   IsSkipPass: boolean;
 }
 
+export interface LocalGift {
+  Id: string;
+  Sender: 'A' | 'B';
+  Receiver: 'A' | 'B';
+  RewardName: string;
+  Message: string;
+  Timestamp: string;
+  Used: boolean;
+  AttachedXp: number;
+}
+
 export interface LocalDbSchema {
   quests: LocalQuest[];
   milestones: LocalMilestone[];
   shopItems: LocalMilestone[];
+  gifts: LocalGift[];
   logs: LocalLog[];
   config: Record<string, string | number>;
 }
@@ -71,17 +83,18 @@ const DEFAULT_MILESTONES: LocalMilestone[] = [
 const DEFAULT_SHOP_ITEMS: LocalMilestone[] = [
   { Tier: 1, XPThreshold: 300, RewardName: '雙人豪華手搖飲', Description: '買一杯不用看價錢的豪華飲料', Unlocked: false },
   { Tier: 2, XPThreshold: 600, RewardName: '週末甜點約會', Description: '雙人下午茶，一起吃好吃的蛋糕', Unlocked: false },
-  { Tier: 3, XPThreshold: 1200, RewardName: '雙人電影約會', Description: '買大爆米花和可樂一起看場電影', Unlocked: false },
+  { Tier: 3, XPThreshold: 1200, RewardName: '雙人電影約會', Description: '買大爆米花 and 可樂一起看場電影', Unlocked: false },
   { Tier: 4, XPThreshold: 2500, RewardName: '豪華燒肉/火鍋大餐', Description: '慶祝突破階段性目標的豪華大餐', Unlocked: false },
   { Tier: 5, XPThreshold: 5000, RewardName: '存入 3000 元旅遊基金', Description: '一起為下次旅遊存錢', Unlocked: false },
   { Tier: 6, XPThreshold: 10000, RewardName: '週末溫泉小旅行', Description: '兩天一夜的一泊二食溫泉之旅', Unlocked: false },
-  { Tier: 7, XPThreshold: 20000, RewardName: '神兵利器升級基金', Description: '存入 10,000 元作為家電或娛樂設備升級金', Unlocked: false }
+  { Tier: 7, XPThreshold: 20000, RewardName: '神兵利器升級基金', Description: '存入 10,000 元作為家電或娛樂設備升級金', Unlocked: false },
+  { Tier: 8, XPThreshold: 150, RewardName: '🎨 自訂驚喜兌現券', Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！', Unlocked: false }
 ]
 
 
 // 預設設定
 const DEFAULT_CONFIG = {
-  GuildName: '雙人夢想解鎖板',
+  GuildName: '日常養成基地',
   PlayerAName: '萱',
   PlayerBName: '至',
   AIPrompt: '請根據本週數據：{PlayerA} 完成了 {A_completed} 項任務，{PlayerB} 完成了 {B_completed} 項任務。請以輕鬆、溫馨且鼓勵性的冒險戰報口吻，撰寫一篇 100 字內的每週進度戰報總結，並給予雙方熱血與實用的鼓勵，語系使用台灣繁體中文。',
@@ -96,6 +109,7 @@ export function getLocalDb(): LocalDbSchema {
       quests: DEFAULT_QUESTS,
       milestones: DEFAULT_MILESTONES,
       shopItems: DEFAULT_SHOP_ITEMS,
+      gifts: [],
       logs: [],
       config: DEFAULT_CONFIG
     }
@@ -106,18 +120,37 @@ export function getLocalDb(): LocalDbSchema {
   try {
     const content = fs.readFileSync(DB_FILE, 'utf-8')
     const parsed = JSON.parse(content) as LocalDbSchema
+    
     // 確保 shopItems 存在
     if (!parsed.shopItems) {
       parsed.shopItems = DEFAULT_SHOP_ITEMS
-      parsed.milestones = DEFAULT_MILESTONES // 同步升級預設里程碑名稱
-      saveLocalDb(parsed)
+      parsed.milestones = DEFAULT_MILESTONES
     }
+
+    // 確保 Tier 8 (自訂驚喜兌現券) 存在於目前載入的資料庫中
+    if (parsed.shopItems && !parsed.shopItems.some((i: any) => i.Tier === 8)) {
+      parsed.shopItems.push({
+        Tier: 8,
+        XPThreshold: 150,
+        RewardName: '🎨 自訂驚喜兌現券',
+        Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！',
+        Unlocked: false
+      })
+    }
+    
+    // 確保 gifts 存在
+    if (!parsed.gifts) {
+      parsed.gifts = []
+    }
+    
+    saveLocalDb(parsed)
     return parsed
   } catch (e) {
     const initialDb: LocalDbSchema = {
       quests: DEFAULT_QUESTS,
       milestones: DEFAULT_MILESTONES,
       shopItems: DEFAULT_SHOP_ITEMS,
+      gifts: [],
       logs: [],
       config: DEFAULT_CONFIG
     }
