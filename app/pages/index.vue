@@ -34,7 +34,7 @@
 
     <!-- 情況 B：已選擇身分，顯示主儀表板 -->
     <div v-else class="dashboard-content">
-      <!-- 頂部公會資訊 -->
+      <!-- 2.0 精簡版頂部常駐導航 (大幅節省手機首屏空間) -->
       <GuildHeader 
         :guild-name="guildName"
         :player-a-name="playerAName"
@@ -47,16 +47,9 @@
         :is-synergy-active="isSynergyActive"
         :active-player="activePlayer"
         :is-offline="isOffline"
+        mode="compact"
+        @logout="logoutPlayer"
       />
-
-      <!-- 當前登入身分與切換鈕 -->
-      <div class="user-bar">
-        <div class="user-info-pill">
-          <span class="status-indicator"></span>
-          <span>冒險者身分：<strong class="text-white">{{ activePlayerName }}</strong></span>
-        </div>
-        <button class="btn-logout" @click="logoutPlayer">切換身分</button>
-      </div>
 
       <!-- 錯誤/警告提示 -->
       <div v-if="errorMessage" class="error-banner">
@@ -174,6 +167,23 @@
             </div>
           </div>
         </div>
+
+        <!-- 滿版公會詳細進度大看板 (從首頁移到此處) -->
+        <GuildHeader 
+          :guild-name="guildName"
+          :player-a-name="playerAName"
+          :player-b-name="playerBName"
+          :total-xp="totalXp" 
+          :player-a-balance="playerABalance"
+          :player-b-balance="playerBBalance"
+          :player-a-contribution="playerAContribution"
+          :player-b-contribution="playerBContribution"
+          :is-synergy-active="isSynergyActive"
+          :active-player="activePlayer"
+          :is-offline="isOffline"
+          mode="full"
+          style="margin-bottom: 1rem;"
+        />
 
         <HistoryPanel 
           :logs="logs"

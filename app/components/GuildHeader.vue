@@ -1,104 +1,135 @@
 <template>
-  <header class="guild-header game-card">
-    <!-- 標題與登入身分列 -->
-    <div class="header-main">
-      <div class="guild-info">
-        <div class="title-wrapper">
-          <h1 class="guild-title">{{ guildName || '日常習慣養成公會' }}</h1>
-          <span class="guild-subtitle">DAILY HABIT COMPANION GUILD</span>
-        </div>
-        <div class="guild-level-badge">
-          LV. {{ guildLevel }}
-        </div>
+  <div>
+    <!-- 2.0 新增：精簡版頂部常駐 Slim Header (高質感、不佔版幅) -->
+    <div v-if="mode === 'compact'" class="guild-top-bar">
+      <div class="top-bar-left">
+        <span class="top-bar-guild-icon">🏰</span>
+        <span class="top-bar-guild-name">{{ guildName || '日常習慣養成公會' }}</span>
+        <span class="top-bar-level-badge">LV. {{ guildLevel }}</span>
       </div>
       
-      <div class="player-identity" :class="playerClass">
-        <span class="pulse-dot"></span>
-        <span class="player-label">{{ playerStatusLabel }}</span>
+      <div class="top-bar-right" v-if="activePlayer">
+        <div class="top-bar-user-pill" :class="activePlayer === 'A' ? 'pill-a' : 'pill-b'">
+          <span class="top-bar-avatar">{{ activePlayer === 'A' ? 'A' : 'B' }}</span>
+          <span class="top-bar-player-name">{{ activePlayer === 'A' ? playerAName : playerBName }}</span>
+          <span class="top-bar-balance">{{ activePlayer === 'A' ? playerABalance : playerBBalance }} XP</span>
+        </div>
+        <button class="btn-top-bar-switch" @click="$emit('logout')">切換身分</button>
       </div>
     </div>
 
-    <!-- 2.0 新增：雙人發光錢包與默契共鳴狀態區塊 -->
-    <div class="players-wallets-grid">
-      <!-- 玩家 A 錢包卡片 -->
-      <div class="wallet-card card-player-a" :class="{ 'card-active': activePlayer === 'A' }">
-        <div class="wallet-player-name">{{ playerAName }}</div>
-        <div class="wallet-balance-row">
-          <span class="wallet-xp-val text-neon-purple">{{ playerABalance }}</span>
-          <span class="wallet-xp-unit">XP 可用</span>
+    <!-- 滿版詳細大看板 (只在「報告」分頁顯示，不再常駐每一頁) -->
+    <header v-else class="guild-header game-card">
+      <!-- 標題與登入身分列 -->
+      <div class="header-main">
+        <div class="guild-info">
+          <div class="title-wrapper">
+            <h1 class="guild-title">{{ guildName || '日常習慣養成公會' }}</h1>
+            <span class="guild-subtitle">DAILY HABIT COMPANION GUILD</span>
+          </div>
+          <div class="guild-level-badge">
+            LV. {{ guildLevel }}
+          </div>
         </div>
-        <div class="wallet-contribution-row">
-          生涯貢獻: {{ playerAContribution }} XP
-        </div>
-      </div>
-
-      <!-- 默契共鳴徽章 -->
-      <div class="synergy-status-wrapper">
-        <div class="synergy-badge" :class="{ 'synergy-active': isSynergyActive }">
-          <span class="synergy-icon">⚡</span>
-          <span class="synergy-text">{{ isSynergyActive ? '默契共鳴' : '尚未共鳴' }}</span>
+        
+        <div class="player-identity" :class="playerClass">
+          <span class="pulse-dot"></span>
+          <span class="player-label">{{ playerStatusLabel }}</span>
         </div>
       </div>
 
-      <!-- 玩家 B 錢包卡片 -->
-      <div class="wallet-card card-player-b" :class="{ 'card-active': activePlayer === 'B' }">
-        <div class="wallet-player-name">{{ playerBName }}</div>
-        <div class="wallet-balance-row">
-          <span class="wallet-xp-val text-neon-blue">{{ playerBBalance }}</span>
-          <span class="wallet-xp-unit">XP 可用</span>
+      <!-- 2.0 新增：雙人發光錢包與默契共鳴狀態區塊 -->
+      <div class="players-wallets-grid">
+        <!-- 玩家 A 錢包卡片 -->
+        <div class="wallet-card card-player-a" :class="{ 'card-active': activePlayer === 'A' }">
+          <div class="wallet-player-name">{{ playerAName }}</div>
+          <div class="wallet-balance-row">
+            <span class="wallet-xp-val text-neon-purple">{{ playerABalance }}</span>
+            <span class="wallet-xp-unit">XP 可用</span>
+          </div>
+          <div class="wallet-contribution-row">
+            生涯貢獻: {{ playerAContribution }} XP
+          </div>
         </div>
-        <div class="wallet-contribution-row">
-          生涯貢獻: {{ playerBContribution }} XP
-        </div>
-      </div>
-    </div>
 
-    <!-- 經驗值進度條 -->
-    <div class="level-progress-container">
-      <div class="progress-labels">
-        <span>LV. {{ guildLevel }}</span>
-        <span>LV. {{ guildLevel + 1 }}</span>
-      </div>
-      <div class="progress-bar-bg">
-        <div 
-          class="progress-bar-fill" 
-          :style="{ width: `${levelProgressPercentage}%` }"
-        >
-          <div class="progress-bar-shimmer"></div>
+        <!-- 默契共鳴徽章 -->
+        <div class="synergy-status-wrapper">
+          <div class="synergy-badge" :class="{ 'synergy-active': isSynergyActive }">
+            <span class="synergy-icon">⚡</span>
+            <span class="synergy-text">{{ isSynergyActive ? '默契共鳴' : '尚未共鳴' }}</span>
+          </div>
+        </div>
+
+        <!-- 玩家 B 錢包卡片 -->
+        <div class="wallet-card card-player-b" :class="{ 'card-active': activePlayer === 'B' }">
+          <div class="wallet-player-name">{{ playerBName }}</div>
+          <div class="wallet-balance-row">
+            <span class="wallet-xp-val text-neon-blue">{{ playerBBalance }}</span>
+            <span class="wallet-xp-unit">XP 可用</span>
+          </div>
+          <div class="wallet-contribution-row">
+            生涯貢獻: {{ playerBContribution }} XP
+          </div>
         </div>
       </div>
-      <div class="xp-ratio-centered">
-        目前經驗值: {{ xpInCurrentLevel }} / 500 XP <span class="total-xp-secondary">(總積分: {{ totalXp }} XP)</span>
-      </div>
-    </div>
 
-    <!-- 離線模式警告條 -->
-    <div v-if="isOffline" class="offline-warning-banner">
-      <svg class="warning-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>
-      <span>目前處於離線展示模式。請參閱 <a href="file:///Users/sherryhsieh/.gemini/antigravity/brain/f5a4da56-c0e6-408f-bd9f-7b8bcd0dafe6/google_sheets_setup.md" target="_blank" class="setup-link">Google Sheets 設定指南</a> 串接您的專屬資料庫以同步進度。</span>
-    </div>
-  </header>
+      <!-- 經驗值進度條 -->
+      <div class="level-progress-container">
+        <div class="progress-labels">
+          <span>LV. {{ guildLevel }}</span>
+          <span>LV. {{ guildLevel + 1 }}</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div 
+            class="progress-bar-fill" 
+            :style="{ width: `${levelProgressPercentage}%` }"
+          >
+            <div class="progress-bar-shimmer"></div>
+          </div>
+        </div>
+        <div class="xp-ratio-centered">
+          目前經驗值: {{ xpInCurrentLevel }} / 500 XP <span class="total-xp-secondary">(總積分: {{ totalXp }} XP)</span>
+        </div>
+      </div>
+
+      <!-- 離線模式警告條 -->
+      <div v-if="isOffline" class="offline-warning-banner">
+        <svg class="warning-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>目前處於離線展示模式。請參閱 <a href="file:///Users/sherryhsieh/.gemini/antigravity/brain/f5a4da56-c0e6-408f-bd9f-7b8bcd0dafe6/google_sheets_setup.md" target="_blank" class="setup-link">Google Sheets 設定指南</a> 串接您的專屬資料庫以同步進度。</span>
+      </div>
+    </header>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
-  guildName: string
-  playerAName: string
-  playerBName: string
-  totalXp: number
-  playerABalance: number
-  playerBBalance: number
-  playerAContribution: number
-  playerBContribution: number
-  isSynergyActive: boolean
-  activePlayer: 'A' | 'B' | null
-  isOffline: boolean
+const props = withDefaults(
+  defineProps<{
+    guildName: string
+    playerAName: string
+    playerBName: string
+    totalXp: number
+    playerABalance: number
+    playerBBalance: number
+    playerAContribution: number
+    playerBContribution: number
+    isSynergyActive: boolean
+    activePlayer: 'A' | 'B' | null
+    isOffline: boolean
+    mode?: 'compact' | 'full'
+  }>(),
+  {
+    mode: 'full'
+  }
+)
+
+const emit = defineEmits<{
+  (e: 'logout'): void
 }>()
 
 // 每 500 XP 升一級
@@ -471,6 +502,151 @@ const playerClass = computed(() => {
   .guild-level-badge {
     padding: 0.25rem 0.75rem;
     font-size: 0.9rem;
+  }
+}
+
+/* ==========================================
+   2.0 新增：頂部 Slim 導航列樣式
+   ========================================== */
+.guild-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0.85rem;
+  background: rgba(20, 24, 35, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin-bottom: 0.85rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.top-bar-guild-icon {
+  font-size: 1.05rem;
+}
+
+.top-bar-guild-name {
+  font-weight: 850;
+  font-size: 0.82rem;
+  color: #fff;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 105px;
+}
+
+.top-bar-level-badge {
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--neon-gold), #ff9f1c);
+  color: #000;
+  padding: 0.05rem 0.35rem;
+  border-radius: 5px;
+  line-height: 1.2;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.top-bar-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.72rem;
+  font-weight: bold;
+}
+
+.pill-a {
+  border-color: rgba(157, 78, 221, 0.25);
+  background: rgba(157, 78, 221, 0.06);
+}
+.pill-a .top-bar-avatar {
+  background: var(--neon-purple);
+}
+.pill-a .top-bar-balance {
+  color: #c8b6ff;
+}
+
+.pill-b {
+  border-color: rgba(0, 180, 216, 0.25);
+  background: rgba(0, 180, 216, 0.06);
+}
+.pill-b .top-bar-avatar {
+  background: var(--neon-blue);
+}
+.pill-b .top-bar-balance {
+  color: #90e0ef;
+}
+
+.top-bar-avatar {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  font-size: 0.52rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.top-bar-player-name {
+  color: #fff;
+  font-size: 0.7rem;
+  max-width: 42px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-balance {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.7rem;
+}
+
+.btn-top-bar-switch {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-top-bar-switch:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 360px) {
+  .top-bar-guild-name {
+    max-width: 80px;
+  }
+  .top-bar-player-name {
+    display: none;
   }
 }
 </style>
