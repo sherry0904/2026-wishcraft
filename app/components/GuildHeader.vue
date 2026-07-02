@@ -8,10 +8,14 @@
       </div>
       
       <div class="top-bar-right" v-if="activePlayer">
+        <span v-if="isSynergyActive" class="top-bar-synergy-glow" title="今日默契共鳴達成">⚡</span>
         <div class="top-bar-user-pill" :class="activePlayer === 'A' ? 'pill-a' : 'pill-b'">
           <span class="top-bar-avatar">{{ activePlayer === 'A' ? 'A' : 'B' }}</span>
           <span class="top-bar-player-name">{{ activePlayer === 'A' ? playerAName : playerBName }}</span>
-          <span class="top-bar-balance">{{ activePlayer === 'A' ? playerABalance : playerBBalance }} XP</span>
+          <span class="top-bar-balance">
+            <span class="xp-number">{{ formatXp(activePlayer === 'A' ? playerABalance : playerBBalance) }}</span>
+            <span class="xp-label">XP</span>
+          </span>
         </div>
         <button class="btn-top-bar-switch" @click="$emit('switchPlayer')">切換</button>
       </div>
@@ -37,39 +41,35 @@
         </div>
       </div>
 
-      <!-- 2.0 新增：雙人發光錢包與默契共鳴狀態區塊 -->
+      <!-- 雙人發光錢包 -->
       <div class="players-wallets-grid">
         <!-- 玩家 A 錢包卡片 -->
         <div class="wallet-card card-player-a" :class="{ 'card-active': activePlayer === 'A' }">
           <div class="wallet-player-name">{{ playerAName }}</div>
-          <div class="wallet-balance-row">
-            <span class="wallet-xp-val text-neon-purple">{{ playerABalance }}</span>
-            <span class="wallet-xp-unit">XP 可用</span>
-          </div>
+          <div class="wallet-xp-num text-neon-purple">{{ formatXp(playerABalance) }}</div>
+          <div class="wallet-xp-caption">XP 可用</div>
           <div class="wallet-contribution-row">
-            生涯貢獻: {{ playerAContribution }} XP
-          </div>
-        </div>
-
-        <!-- 默契共鳴徽章 -->
-        <div class="synergy-status-wrapper">
-          <div class="synergy-badge" :class="{ 'synergy-active': isSynergyActive }">
-            <span class="synergy-icon">⚡</span>
-            <span class="synergy-text">{{ isSynergyActive ? '默契共鳴' : '尚未共鳴' }}</span>
+            <span class="contribution-label">生涯貢獻</span>
+            <span class="contribution-value">{{ formatXp(playerAContribution) }} XP</span>
           </div>
         </div>
 
         <!-- 玩家 B 錢包卡片 -->
         <div class="wallet-card card-player-b" :class="{ 'card-active': activePlayer === 'B' }">
           <div class="wallet-player-name">{{ playerBName }}</div>
-          <div class="wallet-balance-row">
-            <span class="wallet-xp-val text-neon-blue">{{ playerBBalance }}</span>
-            <span class="wallet-xp-unit">XP 可用</span>
-          </div>
+          <div class="wallet-xp-num text-neon-blue">{{ formatXp(playerBBalance) }}</div>
+          <div class="wallet-xp-caption">XP 可用</div>
           <div class="wallet-contribution-row">
-            生涯貢獻: {{ playerBContribution }} XP
+            <span class="contribution-label">生涯貢獻</span>
+            <span class="contribution-value">{{ formatXp(playerBContribution) }} XP</span>
           </div>
         </div>
+      </div>
+
+      <!-- 默契共鳴橫幅：僅當日雙方都有打卡時顯示 -->
+      <div v-if="isSynergyActive" class="synergy-banner">
+        <span class="synergy-banner-icon">⚡</span>
+        <span class="synergy-banner-text">今日默契共鳴達成！雙方均已完成任務</span>
       </div>
 
       <!-- 經驗值進度條 -->
@@ -87,7 +87,7 @@
           </div>
         </div>
         <div class="xp-ratio-centered">
-          目前經驗值: {{ xpInCurrentLevel }} / {{ totalXpNeededInCurrentLevel }} XP <span class="total-xp-secondary">(總積分: {{ totalXp }} XP)</span>
+          目前經驗值: {{ formatXp(xpInCurrentLevel) }} / {{ formatXp(totalXpNeededInCurrentLevel) }} XP <span class="total-xp-secondary">(總積分: {{ formatXp(totalXp) }} XP)</span>
         </div>
       </div>
 
@@ -170,7 +170,7 @@
                     </svg>
                   </div>
                   <div class="milestone-info">
-                    <span class="milestone-xp">{{ ms.XPThreshold }} XP</span>
+                    <span class="milestone-xp">{{ formatXp(ms.XPThreshold) }} XP</span>
                     <span class="milestone-name" :title="ms.RewardName">{{ ms.RewardName }}</span>
                   </div>
                 </div>
@@ -342,6 +342,10 @@ const playerClass = computed(() => {
   if (props.activePlayer === 'B') return 'player-b'
   return 'spectator'
 })
+
+function formatXp(value: number): string {
+  return new Intl.NumberFormat('zh-TW').format(Math.max(0, Math.round(Number(value) || 0)))
+}
 </script>
 
 <style scoped>
@@ -505,73 +509,81 @@ const playerClass = computed(() => {
   margin-bottom: 0.15rem;
 }
 
-.wallet-balance-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.2rem;
-  margin-bottom: 0.15rem;
-}
-
-.wallet-xp-val {
+.wallet-xp-num {
   font-family: var(--font-title);
   font-size: 1.15rem;
   font-weight: 900;
+  letter-spacing: 2px;
+  line-height: 1;
+  white-space: nowrap;
+  margin-bottom: 0.1rem;
 }
 
-.wallet-xp-unit {
+.wallet-xp-caption {
   font-size: 0.6rem;
   color: var(--text-muted);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  margin-bottom: 0.15rem;
 }
 
 .wallet-contribution-row {
-  font-size: 0.55rem;
-  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 0.3rem;
+  padding-top: 0.28rem;
+  gap: 0.25rem;
 }
 
-/* 默契共鳴標記 */
-.synergy-status-wrapper {
+.contribution-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.contribution-value {
+  font-size: 0.6rem;
+  font-family: var(--font-title);
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* 默契共鳴橫幅 */
+.synergy-banner {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-}
-
-.synergy-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 30px;
-  padding: 0.35rem 0.5rem;
-  transition: var(--transition-smooth);
-}
-
-.synergy-badge.synergy-active {
-  background: rgba(255, 183, 3, 0.08);
-  border-color: var(--neon-gold);
-  box-shadow: var(--shadow-neon-gold);
+  gap: 0.4rem;
+  background: rgba(255, 183, 3, 0.06);
+  border: 1px solid rgba(255, 183, 3, 0.2);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.7rem;
   animation: synergy-pulse-anim 2s infinite ease-in-out;
 }
 
-.synergy-icon {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-}
-.synergy-active .synergy-icon {
+.synergy-banner-icon {
   color: var(--neon-gold);
-  text-shadow: 0 0 5px var(--neon-gold);
+  text-shadow: 0 0 6px rgba(255, 183, 3, 0.6);
+  font-size: 0.85rem;
 }
 
-.synergy-text {
-  font-size: 0.5rem;
-  font-weight: bold;
-  color: var(--text-muted);
-  margin-top: 0.1rem;
-}
-.synergy-active .synergy-text {
+.synergy-banner-text {
   color: var(--neon-gold);
+  letter-spacing: 0.3px;
+}
+
+/* 頂部常駐列共鳴指示燈 */
+.top-bar-synergy-glow {
+  font-size: 0.8rem;
+  color: var(--neon-gold);
+  text-shadow: 0 0 6px rgba(255, 183, 3, 0.7);
+  animation: synergy-pulse-anim 2s infinite ease-in-out;
+  flex-shrink: 0;
 }
 
 @keyframes synergy-pulse-anim {
@@ -817,6 +829,18 @@ const playerClass = computed(() => {
   font-weight: 800;
   font-size: 0.7rem;
   white-space: nowrap; /* 確保點數 XP 絕不斷行 */
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.38rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.xp-number {
+  letter-spacing: 0.55px;
+}
+
+.xp-label {
+  letter-spacing: 2px;
 }
 
 .btn-top-bar-switch {

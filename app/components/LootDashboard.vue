@@ -9,8 +9,11 @@
       
       <!-- 個人錢包可用餘額顯示 -->
       <div v-if="activePlayer" class="treasury-card">
-        <div class="treasury-label">{{ activePlayerName }} 的可用餘額</div>
-        <div class="treasury-value text-neon-gold">{{ currentBalance }} <span class="xp-unit">XP</span></div>
+        <div class="treasury-label">{{ activePlayerName }} 目前可用點數</div>
+        <div class="treasury-value text-neon-gold">
+          <span class="treasury-value-number">{{ formatXp(currentBalance) }}</span>
+          <span class="xp-unit">XP</span>
+        </div>
       </div>
     </div>
 
@@ -135,7 +138,7 @@
           
           <div class="item-header">
             <h4 class="item-name text-neon-gold">🎰 幸運養成扭蛋機</h4>
-            <div class="item-cost text-neon-gold">100 <span class="cost-unit">XP</span></div>
+            <div class="item-cost text-neon-gold">{{ formatXp(100) }} <span class="cost-unit">XP</span></div>
           </div>
           
           <p class="item-desc">消費 100 XP 個人額度，隨機抽取實體福利卡（如搥背券、免洗碗卡、愛心早餐卡或請假券等）送入您的卡盒！</p>
@@ -153,7 +156,7 @@
               class="btn-shop btn-insufficient" 
               disabled
             >
-              餘額不足 (還差 {{ 100 - currentBalance }} XP)
+              餘額不足 (還差 {{ formatXp(100 - currentBalance) }} XP)
             </button>
             <button 
               v-else 
@@ -186,7 +189,7 @@
 
           <div class="item-header">
             <h4 class="item-name">{{ item.RewardName }}</h4>
-            <div class="item-cost">{{ item.XPThreshold }} <span class="cost-unit">XP</span></div>
+            <div class="item-cost">{{ formatXp(item.XPThreshold) }} <span class="cost-unit">XP</span></div>
           </div>
           
           <p class="item-desc">{{ item.Description }}</p>
@@ -198,7 +201,7 @@
               class="btn-shop btn-locked" 
               disabled
             >
-              公會等級鎖定 (需累積 {{ item.XPThreshold }} XP)
+              公會等級鎖定 (需累積 {{ formatXp(item.XPThreshold) }} XP)
             </button>
             
             <!-- 情況 B：點數不足 -->
@@ -207,7 +210,7 @@
               class="btn-shop btn-insufficient" 
               disabled
             >
-              錢包點數不足 (還差 {{ item.XPThreshold - currentBalance }} XP)
+              錢包點數不足 (還差 {{ formatXp(item.XPThreshold - currentBalance) }} XP)
             </button>
             
             <!-- 情況 C：可兌換 -->
@@ -235,7 +238,7 @@
             <!-- 如果是自訂驚喜券 (Tier 8) -->
             <div v-if="selectedReward?.Tier === 8" class="custom-coupon-inputs">
               <p class="modal-text">
-                您即將花費 <strong class="text-neon-gold">{{ selectedReward?.XPThreshold }} XP</strong> 兌換一張自訂券送給夥伴。
+                您即將花費 <strong class="text-neon-gold">{{ formatXp(selectedReward?.XPThreshold || 0) }} XP</strong> 兌換一張自訂券送給夥伴。
               </p>
               <div class="message-input-wrapper">
                 <label class="input-lbl">🎨 請輸入您的自訂券面名稱：</label>
@@ -253,7 +256,7 @@
             <!-- 一般商品 -->
             <div v-else>
               <p class="modal-text">
-                您即將花費 <strong class="text-neon-gold">{{ selectedReward?.XPThreshold }} XP</strong> 兌換 <strong class="text-white">【{{ selectedReward?.RewardName }}】</strong>。
+                您即將花費 <strong class="text-neon-gold">{{ formatXp(selectedReward?.XPThreshold || 0) }} XP</strong> 兌換 <strong class="text-white">【{{ selectedReward?.RewardName }}】</strong>。
               </p>
             </div>
             
@@ -345,7 +348,7 @@
                 </button>
               </div>
               <p v-if="attachedXpToSend > 0" class="xp-attachment-hint">
-                💡 送出後將扣減您的錢包 <strong class="text-neon-gold">{{ attachedXpToSend }} XP</strong>，對方點選使用卡片時會增加該點數。
+                💡 送出後將扣減您的錢包 <strong class="text-neon-gold">{{ formatXp(attachedXpToSend) }} XP</strong>，對方點選使用卡片時會增加該點數。
               </p>
             </div>
 
@@ -478,6 +481,10 @@ const currentBalance = computed(() => {
   if (props.activePlayer === 'B') return props.playerBBalance
   return 0
 })
+
+function formatXp(value: number): string {
+  return new Intl.NumberFormat('zh-TW').format(Math.max(0, Math.round(Number(value) || 0)))
+}
 
 // 當前身分中文姓名
 const activePlayerName = computed(() => {
@@ -893,11 +900,23 @@ function triggerConfetti() {
   font-family: var(--font-title);
   font-size: 1.3rem;
   font-weight: 900;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.treasury-value-number {
+  letter-spacing: 2px;
+  line-height: 1;
 }
 
 .xp-unit {
   font-size: 0.8rem;
+  font-weight: 700;
   color: var(--text-secondary);
+  letter-spacing: 2px;
 }
 
 .section-title {
