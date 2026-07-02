@@ -27,8 +27,8 @@
       <div class="header-main">
         <div class="guild-info">
           <div class="title-wrapper">
-            <h1 class="guild-title">{{ guildName || '日常習慣養成公會' }}</h1>
-            <span class="guild-subtitle">DAILY HABIT COMPANION GUILD</span>
+            <h1 class="guild-title">公會成長總覽</h1>
+            <span class="guild-subtitle">PROGRESS REPORT</span>
           </div>
           <div class="guild-level-badge">
             LV. {{ guildLevel }}

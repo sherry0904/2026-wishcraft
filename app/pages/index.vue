@@ -197,6 +197,53 @@
 
       <!-- 3.5 養成報告分頁 (2.0 新增) -->
       <div v-if="currentNavTab === 'reports'" class="tab-view-content">
+
+        <!-- 🔥 連勝天數卡 -->
+        <div class="streak-card game-card">
+          <div class="streak-card-header">
+            <span class="streak-card-title">🔥 養成連勝</span>
+            <span class="streak-card-subtitle font-title">DAILY STREAK</span>
+          </div>
+          <div class="streak-players-row">
+            <!-- 玩家 A -->
+            <div class="streak-player-block">
+              <div class="streak-player-name">{{ playerAName }}</div>
+              <div class="streak-count" :class="playerAStreak >= 7 ? 'streak-legendary' : playerAStreak >= 3 ? 'streak-hot' : 'streak-cold'">
+                {{ playerAStreak }}
+              </div>
+              <div class="streak-unit">連續天數</div>
+              <div class="streak-flames">
+                <span v-for="n in Math.min(playerAStreak, 7)" :key="n">🔥</span>
+                <span v-if="playerAStreak === 0" class="streak-cold-txt">尚未開始</span>
+              </div>
+            </div>
+
+            <!-- 分隔 -->
+            <div class="streak-vs">VS</div>
+
+            <!-- 玩家 B -->
+            <div class="streak-player-block">
+              <div class="streak-player-name">{{ playerBName }}</div>
+              <div class="streak-count" :class="playerBStreak >= 7 ? 'streak-legendary' : playerBStreak >= 3 ? 'streak-hot' : 'streak-cold'">
+                {{ playerBStreak }}
+              </div>
+              <div class="streak-unit">連續天數</div>
+              <div class="streak-flames">
+                <span v-for="n in Math.min(playerBStreak, 7)" :key="n">🔥</span>
+                <span v-if="playerBStreak === 0" class="streak-cold-txt">尚未開始</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 激勵語句 -->
+          <div class="streak-motivation">
+            <span v-if="playerAStreak >= 7 || playerBStreak >= 7">🏆 超過 7 天連勝！傳說等級的習慣養成！</span>
+            <span v-else-if="playerAStreak >= 3 || playerBStreak >= 3">💪 連勝中，別讓火焰熄滅！</span>
+            <span v-else-if="playerAStreak === 0 && playerBStreak === 0">今天完成第一個任務，點燃你們的連勝火焰 🔥</span>
+            <span v-else>加油！每天的堅持都在累積能量 ⚡</span>
+          </div>
+        </div>
+
         <!-- 滿版公會詳細進度大看板 (從首頁移到此處，置於報告最頂端) -->
         <GuildHeader 
           :guild-name="guildName"
@@ -776,6 +823,39 @@ const isSynergyActive = computed(() => {
 })
 
 
+// 連勝天數計算 (包含使用請假券的天數)
+function calcStreak(player: 'A' | 'B'): number {
+  const getDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const today = new Date()
+  const todayStr = getDateStr(today)
+
+  const hasActivity = (dateStr: string) =>
+    logs.value.some(
+      l =>
+        parseToLocalDateStr(l.Date) === dateStr &&
+        l.Player === player &&
+        !l.QuestId.startsWith('redeem_')
+    )
+
+  // 今天有打卡就從今天算起，否則從昨天開始往回數（今天尚未打卡不中斷連勝）
+  const startOffset = hasActivity(todayStr) ? 0 : 1
+  let streak = 0
+  for (let i = startOffset; i < 365; i++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    if (hasActivity(getDateStr(d))) {
+      streak++
+    } else {
+      break
+    }
+  }
+  return streak
+}
+
+const playerAStreak = computed(() => calcStreak('A'))
+const playerBStreak = computed(() => calcStreak('B'))
+
 // 8. 監聽 XP 變化，若突破里程碑則噴發彩帶
 let lastXpVal = 0
 function checkMilestoneUnlock(newVal: number, oldVal: number) {
@@ -1208,6 +1288,118 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ========== 🔥 連勝天數卡 ========== */
+.streak-card {
+  margin-bottom: 1rem;
+  border-top: 3px solid #ff6b35;
+}
+
+.streak-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.streak-card-title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.streak-card-subtitle {
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.streak-players-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.streak-player-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.streak-player-name {
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+}
+
+.streak-count {
+  font-family: var(--font-title);
+  font-size: 2.8rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.streak-hot {
+  color: #ff6b35;
+  text-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+}
+
+.streak-legendary {
+  color: var(--neon-gold);
+  text-shadow: 0 0 20px rgba(255, 183, 3, 0.6);
+  animation: streak-glow 1.5s infinite ease-in-out;
+}
+
+.streak-cold {
+  color: var(--text-muted);
+}
+
+@keyframes streak-glow {
+  0%, 100% { text-shadow: 0 0 15px rgba(255, 183, 3, 0.4); }
+  50% { text-shadow: 0 0 30px rgba(255, 183, 3, 0.8); }
+}
+
+.streak-unit {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.streak-flames {
+  font-size: 0.85rem;
+  min-height: 1.2rem;
+  letter-spacing: 1px;
+}
+
+.streak-cold-txt {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.streak-vs {
+  font-family: var(--font-title);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.streak-motivation {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 0.75rem;
+  line-height: 1.5;
+}
+
 .guild-dashboard {
   max-width: 1100px;
   margin: 0 auto;
