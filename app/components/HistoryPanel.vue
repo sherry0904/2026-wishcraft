@@ -32,39 +32,41 @@
               'row-skip': log.IsSkipPass
             }"
           >
-            <div class="ledger-date-col">
-              <span class="ledger-date">{{ formatLocalDate(log.Date) }}</span>
-              <span class="ledger-time">{{ formatLocalTime(log.Timestamp) }}</span>
+            <!-- 上半部：描述與得失點數 -->
+            <div class="ledger-row-top">
+              <div class="ledger-desc-text">
+                <!-- 情況 A：請假 -->
+                <span v-if="log.IsSkipPass" class="text-neon-gold">
+                  使用了請假券
+                </span>
+                <!-- 情況 B：點數商店兌換 -->
+                <span v-else-if="log.QuestId.startsWith('redeem_')" class="text-white">
+                  兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
+                </span>
+                <!-- 情況 C：日常任務完成 -->
+                <span v-else class="text-white">
+                  {{ getQuestName(log.QuestId) }}
+                </span>
+              </div>
+              
+              <div class="ledger-amount-col">
+                <span v-if="log.IsSkipPass" class="amount-val text-muted">--</span>
+                <span v-else-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
+                  {{ log.XP }}
+                </span>
+                <span v-else class="amount-val text-gain">
+                  +{{ log.XP }}
+                </span>
+              </div>
             </div>
             
-            <div class="ledger-player-col">
-              <span class="player-badge" :class="log.Player === 'A' ? 'badge-a' : 'badge-b'">
+            <!-- 下半部：時間與操作人 -->
+            <div class="ledger-row-bottom">
+              <span class="ledger-time-badge">
+                {{ formatLocalDate(log.Date) }} {{ formatLocalTime(log.Timestamp) }}
+              </span>
+              <span class="player-tag" :class="log.Player === 'A' ? 'tag-a' : 'tag-b'">
                 {{ log.Player === 'A' ? playerAName : playerBName }}
-              </span>
-            </div>
-
-            <div class="ledger-desc-col">
-              <!-- 情況 A：請假 -->
-              <div v-if="log.IsSkipPass" class="ledger-desc">
-                使用了 <span class="text-neon-gold">請假券</span>
-              </div>
-              <!-- 情況 B：點數商店兌換 -->
-              <div v-else-if="log.QuestId.startsWith('redeem_')" class="ledger-desc text-white">
-                兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
-              </div>
-              <!-- 情況 C：日常任務完成 -->
-              <div v-else class="ledger-desc">
-                <span>{{ getQuestName(log.QuestId) }}</span>
-              </div>
-            </div>
-
-            <div class="ledger-amount-col">
-              <span v-if="log.IsSkipPass" class="amount-val text-muted">--</span>
-              <span v-else-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
-                {{ log.XP }}
-              </span>
-              <span v-else class="amount-val text-gain">
-                +{{ log.XP }}
               </span>
             </div>
           </div>
@@ -419,14 +421,14 @@ const monthlyStats = computed(() => {
 
 .ledger-row {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.015);
   border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
   font-size: 0.8rem;
   transition: var(--transition-smooth);
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .ledger-row:hover {
@@ -434,71 +436,64 @@ const monthlyStats = computed(() => {
   border-color: rgba(255, 255, 255, 0.06);
 }
 
-.ledger-date-col {
+.ledger-row-top {
   display: flex;
-  flex-direction: column;
-  min-width: 65px;
-  padding-top: 0.15rem;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
-.ledger-date {
-  font-family: var(--font-title);
-  font-weight: bold;
-  color: var(--text-muted);
+.ledger-desc-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  flex: 1;
+  padding-right: 0.5rem;
+  line-height: 1.4;
 }
 
-.ledger-time {
-  font-family: var(--font-title);
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-
-.ledger-player-col {
-  min-width: 50px;
-  margin-left: 0.25rem;
-  padding-top: 0.1rem;
-}
-
-.player-badge {
+.ledger-row-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
   font-size: 0.7rem;
+}
+
+.ledger-time-badge {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.player-tag {
+  font-size: 0.65rem;
   font-weight: 800;
-  padding: 0.15rem 0.45rem;
-  border-radius: 6px;
-  display: inline-block;
-  text-align: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
   color: #fff;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 60px;
 }
 
-.badge-a {
-  background: var(--neon-purple);
-  box-shadow: 0 0 5px rgba(157, 78, 221, 0.3);
+.tag-a {
+  background: rgba(157, 78, 221, 0.15);
+  border: 1px solid rgba(157, 78, 221, 0.35);
+  color: #c8b6ff;
+  box-shadow: 0 0 5px rgba(157, 78, 221, 0.15);
 }
 
-.badge-b {
-  background: var(--neon-blue);
-  box-shadow: 0 0 5px rgba(0, 180, 216, 0.3);
-}
-
-.ledger-desc-col {
-  flex: 1;
-  padding: 0 0.5rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-  word-break: break-word;
+.tag-b {
+  background: rgba(0, 180, 216, 0.15);
+  border: 1px solid rgba(0, 180, 216, 0.35);
+  color: #caf0f8;
+  box-shadow: 0 0 5px rgba(0, 180, 216, 0.15);
 }
 
 .ledger-amount-col {
   font-family: var(--font-title);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  min-width: 55px;
   text-align: right;
-  padding-top: 0.15rem;
+  white-space: nowrap;
 }
 
 .text-gain {

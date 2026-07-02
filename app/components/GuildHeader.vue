@@ -87,7 +87,7 @@
           </div>
         </div>
         <div class="xp-ratio-centered">
-          目前經驗值: {{ xpInCurrentLevel }} / 500 XP <span class="total-xp-secondary">(總積分: {{ totalXp }} XP)</span>
+          目前經驗值: {{ xpInCurrentLevel }} / {{ totalXpNeededInCurrentLevel }} XP <span class="total-xp-secondary">(總積分: {{ totalXp }} XP)</span>
         </div>
       </div>
 
@@ -100,12 +100,99 @@
         </svg>
         <span>目前處於離線展示模式。請參閱 <a href="file:///Users/sherryhsieh/.gemini/antigravity/brain/f5a4da56-c0e6-408f-bd9f-7b8bcd0dafe6/google_sheets_setup.md" target="_blank" class="setup-link">Google Sheets 設定指南</a> 串接您的專屬資料庫以同步進度。</span>
       </div>
+
+      <!-- 2.0 移入：里程碑解鎖總進度條 -->
+      <div class="milestones-timeline-section">
+        <div class="milestone-section-title">公會養成里程碑 (永久累積成就)</div>
+        
+        <div class="milestones-timeline-container">
+          <div class="milestones-scroll-wrapper">
+            <div class="milestones-scroll-content">
+              <div class="timeline-line">
+                <div class="timeline-fill" :style="{ width: `${totalTimelinePercentage}%` }"></div>
+              </div>
+              
+              <div class="milestones-list">
+                <div 
+                  v-for="ms in displayMilestones" 
+                  :key="ms.Tier"
+                  class="milestone-node"
+                  :class="{ 
+                    'milestone-unlocked': totalXp >= ms.XPThreshold,
+                    'milestone-next': nextMilestone && nextMilestone.Tier === ms.Tier
+                  }"
+                >
+                  <div class="milestone-chest">
+                    <!-- 旗幟 (起點) -->
+                    <svg 
+                      v-if="ms.Tier === 0" 
+                      class="lock-icon icon-flag"
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      stroke-width="2.5" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                      <line x1="4" y1="22" x2="4" y2="15"></line>
+                    </svg>
+                    <!-- 已解鎖 -->
+                    <svg 
+                      v-else-if="totalXp >= ms.XPThreshold" 
+                      class="lock-icon icon-unlocked" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      stroke-width="2.5" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                    </svg>
+                    <!-- 未解鎖 -->
+                    <svg 
+                      v-else 
+                      class="lock-icon icon-locked" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      stroke-width="2.5" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                  </div>
+                  <div class="milestone-info">
+                    <span class="milestone-xp">{{ ms.XPThreshold }} XP</span>
+                    <span class="milestone-name" :title="ms.RewardName">{{ ms.RewardName }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </header>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+
+export interface Milestone {
+  Tier: number
+  XPThreshold: number
+  RewardName: string
+  Description: string
+  Unlocked: boolean
+}
 
 const props = withDefaults(
   defineProps<{
@@ -121,27 +208,127 @@ const props = withDefaults(
     activePlayer: 'A' | 'B' | null
     isOffline: boolean
     mode?: 'compact' | 'full'
+    milestones?: Milestone[]
   }>(),
   {
-    mode: 'full'
+    mode: 'full',
+    milestones: () => []
   }
 )
 
 const emit = defineEmits<{
   (e: 'logout'): void
+  (e: 'switchPlayer'): void
 }>()
 
-// 每 500 XP 升一級
-const guildLevel = computed(() => {
-  return Math.floor(props.totalXp / 500) + 1
+// 確定下一個未解鎖的里程碑
+const nextMilestone = computed(() => {
+  return props.milestones
+    .filter(ms => props.totalXp < ms.XPThreshold)
+    .sort((a, b) => a.XPThreshold - b.XPThreshold)[0] || null
 })
 
+// 在里程碑最前頭插入一個「0 XP 冒險開始」的起始點
+const displayMilestones = computed(() => {
+  const startNode: Milestone = {
+    Tier: 0,
+    XPThreshold: 0,
+    RewardName: '養成起點',
+    Description: '攜手開始日常養成與福利解鎖！',
+    Unlocked: true
+  }
+  const sorted = [...(props.milestones || [])].sort((a, b) => a.XPThreshold - b.XPThreshold)
+  return [startNode, ...sorted]
+})
+
+// 「段落插值法」計算進度條百分比
+const totalTimelinePercentage = computed(() => {
+  const list = displayMilestones.value
+  const n = list.length
+  if (n <= 1) return 0
+  
+  const totalXpVal = props.totalXp
+  
+  let segmentIndex = 0
+  for (let i = 0; i < n; i++) {
+    if (totalXpVal >= list[i].XPThreshold) {
+      segmentIndex = i
+    } else {
+      break
+    }
+  }
+  
+  if (segmentIndex === n - 1) {
+    return 100
+  }
+  
+  const x0 = list[segmentIndex].XPThreshold
+  const x1 = list[segmentIndex + 1].XPThreshold
+  const y0 = (segmentIndex / (n - 1)) * 100
+  const y1 = ((segmentIndex + 1) / (n - 1)) * 100
+  
+  const ratio = (totalXpVal - x0) / (x1 - x0)
+  const pct = y0 + ratio * (y1 - y0)
+  
+  return Math.min(Math.max(pct, 0), 100)
+})
+
+// 根據里程碑動態計算等級與升級所需經驗值
+const sortedMilestones = computed(() => {
+  return [...(props.milestones || [])].sort((a, b) => a.XPThreshold - b.XPThreshold)
+})
+
+const guildLevel = computed(() => {
+  if (sortedMilestones.value.length === 0) {
+    return Math.floor(props.totalXp / 500) + 1
+  }
+  
+  let currentLevel = 0
+  for (let i = 0; i < sortedMilestones.value.length; i++) {
+    if (props.totalXp >= sortedMilestones.value[i].XPThreshold) {
+      currentLevel = sortedMilestones.value[i].Tier
+    } else {
+      break
+    }
+  }
+  return currentLevel
+})
+
+// 當前等級對應的 XP 起點與升級目標
+const currentLevelMinXp = computed(() => {
+  if (sortedMilestones.value.length === 0) {
+    return Math.floor(props.totalXp / 500) * 500
+  }
+  
+  const level = guildLevel.value
+  if (level === 0) return 0
+  
+  const currentMs = sortedMilestones.value.find(ms => ms.Tier === level)
+  return currentMs ? currentMs.XPThreshold : 0
+})
+
+const nextLevelMaxXp = computed(() => {
+  if (sortedMilestones.value.length === 0) {
+    return (Math.floor(props.totalXp / 500) + 1) * 500
+  }
+  
+  const level = guildLevel.value
+  const nextMs = sortedMilestones.value.find(ms => ms.Tier === level + 1)
+  return nextMs ? nextMs.XPThreshold : (sortedMilestones.value[sortedMilestones.value.length - 1]?.XPThreshold || 1000)
+})
+
+// 當前等級內已獲得的 XP 以及升級總共需要的 XP
 const xpInCurrentLevel = computed(() => {
-  return props.totalXp % 500
+  return Math.max(0, props.totalXp - currentLevelMinXp.value)
+})
+
+const totalXpNeededInCurrentLevel = computed(() => {
+  return Math.max(1, nextLevelMaxXp.value - currentLevelMinXp.value)
 })
 
 const levelProgressPercentage = computed(() => {
-  return (xpInCurrentLevel.value / 500) * 100
+  const pct = (xpInCurrentLevel.value / totalXpNeededInCurrentLevel.value) * 100
+  return Math.min(Math.max(pct, 0), 100)
 })
 
 const playerStatusLabel = computed(() => {
@@ -662,5 +849,146 @@ const playerClass = computed(() => {
   .top-bar-guild-name {
     display: none;
   }
+}
+
+/* 2.0 移入：里程碑養成進度條 */
+.milestones-timeline-section {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 1.25rem 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.milestone-section-title {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.milestones-timeline-container {
+  position: relative;
+  margin: 0.5rem 0;
+}
+
+.milestones-scroll-wrapper {
+  overflow-x: auto;
+  padding-bottom: 0.8rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.milestones-scroll-content {
+  position: relative;
+  min-width: max-content;
+  width: 100%;
+  padding: 1rem 0;
+}
+
+.timeline-line {
+  position: absolute;
+  top: 1.95rem; 
+  left: 3.1rem; 
+  right: 3.1rem; 
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  z-index: 1;
+}
+
+.timeline-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--neon-purple), var(--neon-gold));
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-neon-gold);
+}
+
+.milestones-list {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.milestone-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 100px;
+}
+
+.milestone-chest {
+  width: 30px;
+  height: 30px;
+  background: #141822;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  transition: var(--transition-smooth);
+}
+
+.lock-icon {
+  width: 13px;
+  height: 13px;
+  stroke: rgba(255, 255, 255, 0.3);
+  transition: var(--transition-smooth);
+}
+
+.icon-flag {
+  stroke: var(--text-muted);
+}
+
+.milestone-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.milestone-xp {
+  font-family: var(--font-title);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.milestone-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.milestone-unlocked .milestone-chest {
+  border-color: var(--neon-gold);
+  background: rgba(255, 183, 3, 0.08);
+  box-shadow: var(--shadow-neon-gold);
+}
+
+.milestone-unlocked .lock-icon {
+  stroke: var(--neon-gold);
+}
+
+.milestone-unlocked .icon-flag {
+  stroke: var(--neon-gold);
+}
+
+.milestone-unlocked .milestone-xp {
+  color: var(--neon-gold);
+}
+
+.milestone-unlocked .milestone-name {
+  color: #fff;
 }
 </style>

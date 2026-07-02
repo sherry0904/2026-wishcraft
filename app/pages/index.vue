@@ -167,7 +167,6 @@
           :player-b-balance="playerBBalance"
           :player-a-name="playerAName"
           :player-b-name="playerBName"
-          :milestones="milestones"
           :shop-items="shopItems"
           :gifts="gifts"
           :is-redeeming="isRedeeming"
@@ -203,6 +202,7 @@
           :is-synergy-active="isSynergyActive"
           :active-player="activePlayer"
           :is-offline="isOffline"
+          :milestones="milestones"
           mode="full"
           style="margin-bottom: 1rem;"
         />
