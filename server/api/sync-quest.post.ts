@@ -21,36 +21,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!sheetUrl) {
-    // 沒設定 Google Sheets，寫入本地模擬資料庫
-    const db = getLocalDb()
-    
-    // 尋找是否已有相同紀錄
-    const existingIndex = db.logs.findIndex(log => 
-      log.Date === body.date && 
-      log.Player === body.player && 
-      log.QuestId === body.questId && 
-      !log.IsSkipPass
-    )
-
-    if (body.completed) {
-      if (existingIndex === -1) {
-        db.logs.push({
-          Timestamp: new Date().toISOString(),
-          Date: body.date,
-          Player: body.player,
-          QuestId: body.questId,
-          XP: body.xp,
-          IsSkipPass: false
-        })
-      }
-    } else {
-      if (existingIndex !== -1) {
-        db.logs.splice(existingIndex, 1)
-      }
-    }
-
-    saveLocalDb(db)
-    return { success: true, offline: true }
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+    })
   }
 
   try {
@@ -70,39 +44,9 @@ export default defineEventHandler(async (event) => {
     return { success: true, response }
   } catch (error: any) {
     console.error('Failed to sync quest to Google Sheets:', error.message)
-    
-    // 轉發失敗時降級寫入本地資料庫，確保使用者不卡住
-    const db = getLocalDb()
-    const existingIndex = db.logs.findIndex(log => 
-      log.Date === body.date && 
-      log.Player === body.player && 
-      log.QuestId === body.questId && 
-      !log.IsSkipPass
-    )
-
-    if (body.completed) {
-      if (existingIndex === -1) {
-        db.logs.push({
-          Timestamp: new Date().toISOString(),
-          Date: body.date,
-          Player: body.player,
-          QuestId: body.questId,
-          XP: body.xp,
-          IsSkipPass: false
-        })
-      }
-    } else {
-      if (existingIndex !== -1) {
-        db.logs.splice(existingIndex, 1)
-      }
-    }
-
-    saveLocalDb(db)
-    
-    return { 
-      success: true, 
-      offline: true, 
-      warning: '無法同步至 Google Sheets，已先暫存於本地儲存。' 
-    }
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Failed to sync quest to Google Sheets: ${error.message}`
+    })
   }
 })

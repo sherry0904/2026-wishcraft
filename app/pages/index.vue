@@ -73,6 +73,19 @@
       
       <!-- 1. 任務分頁 -->
       <div v-if="currentNavTab === 'quests'" class="tab-view-content">
+        <!-- 今日日期與雙人已獲得點數看板 -->
+        <div class="today-summary-bar game-card">
+          <div class="today-date-info">
+            <span class="calendar-icon">📅</span>
+            <span class="date-text">{{ formattedTodayDate }}</span>
+          </div>
+          <div class="today-points-info">
+            <span class="xp-pill pill-a">{{ playerAName }}今日已得: +{{ xpEarnedTodayA }} XP</span>
+            <span class="xp-pill pill-b">{{ playerBName }}今日已得: +{{ xpEarnedTodayB }} XP</span>
+            <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO 1.2x</span>
+          </div>
+        </div>
+
         <!-- 中間狀態面板 -->
         <CoOpPanel 
           :active-player="activePlayer"
@@ -470,6 +483,40 @@ const isComboActiveToday = computed(() => {
   }) || hasSkippedB.value
 
   return aDoneCombo && bDoneCombo
+})
+
+const formattedTodayDate = computed(() => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const date = d.getDate()
+  const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const dayName = dayNames[d.getDay()]
+  return `${year} 年 ${month} 月 ${date} 日 ${dayName}`
+})
+
+const xpEarnedTodayA = computed(() => {
+  let sum = 0
+  completedQuestsAToday.value.forEach(id => {
+    const q = quests.value.find(quest => quest.Id === id)
+    if (q) sum += q.XP
+  })
+  if (isComboActiveToday.value) {
+    sum = Math.round(sum * 1.2)
+  }
+  return sum
+})
+
+const xpEarnedTodayB = computed(() => {
+  let sum = 0
+  completedQuestsBToday.value.forEach(id => {
+    const q = quests.value.find(quest => quest.Id === id)
+    if (q) sum += q.XP
+  })
+  if (isComboActiveToday.value) {
+    sum = Math.round(sum * 1.2)
+  }
+  return sum
 })
 
 // 6. 動態加總所有歷史完成任務獲得的累計 XP (只計正值，不隨兌換扣除，用來解鎖里程碑與升級)
@@ -1027,6 +1074,97 @@ onMounted(() => {
   max-width: 1100px;
   margin: 0 auto;
   padding: 1.5rem 1rem;
+}
+
+.dashboard-content {
+  padding-top: 65px; /* 留出頂部固定 Slim Header 的空間，防止重疊 */
+}
+
+/* 今日得點與日期狀態列 */
+.today-summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.25rem;
+  background: rgba(20, 24, 35, 0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.today-date-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.calendar-icon {
+  font-size: 1.15rem;
+}
+
+.date-text {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.today-points-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.xp-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.xp-pill.pill-a {
+  background: rgba(157, 78, 221, 0.12);
+  border: 1px solid rgba(157, 78, 221, 0.25);
+  color: #c8b6ff;
+}
+
+.xp-pill.pill-b {
+  background: rgba(0, 180, 216, 0.12);
+  border: 1px solid rgba(0, 180, 216, 0.25);
+  color: #caf0f8;
+}
+
+.combo-bonus-glow {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--neon-gold);
+  background: rgba(255, 183, 3, 0.12);
+  border: 1px solid rgba(255, 183, 3, 0.3);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  animation: gold-pulse 2s infinite ease-in-out;
+}
+
+@keyframes gold-pulse {
+  0% { box-shadow: 0 0 5px rgba(255, 183, 3, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(255, 183, 3, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(255, 183, 3, 0.2); }
+}
+
+@media (max-width: 768px) {
+  .today-summary-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+  }
+  .today-points-info {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }
 
 .pb-nav {

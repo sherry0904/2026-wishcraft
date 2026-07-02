@@ -5,17 +5,10 @@ export default defineEventHandler(async (event) => {
   const sheetUrl = config.sheetUrl
 
   if (!sheetUrl) {
-    // 沒設定 Google Sheets URL，回傳本地模擬資料
-    const db = getLocalDb()
-    return {
-      quests: db.quests,
-      milestones: db.milestones,
-      shopItems: db.shopItems,
-      gifts: db.gifts || [],
-      logs: db.logs,
-      config: db.config,
-      offline: true
-    }
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+    })
   }
 
   try {
@@ -25,8 +18,7 @@ export default defineEventHandler(async (event) => {
       timeout: 10000 // 10秒逾時
     })
     
-    const db = getLocalDb()
-    const finalShopItems = response.shopItems || db.shopItems
+    const finalShopItems = response.shopItems || []
     
     // 動態注入自訂驚喜兌現券商品，免除使用者手動修改 Sheets 欄位的負擔
     if (Array.isArray(finalShopItems) && !finalShopItems.some((i: any) => Number(i.Tier) === 8)) {
@@ -43,25 +35,16 @@ export default defineEventHandler(async (event) => {
       quests: response.quests || [],
       milestones: response.milestones || [],
       shopItems: finalShopItems,
-      gifts: response.gifts || db.gifts || [],
+      gifts: response.gifts || [],
       logs: response.logs || [],
       config: response.config || {},
       offline: false
     }
   } catch (error: any) {
     console.error('Failed to fetch data from Google Sheets:', error.message)
-    
-    // API 呼叫失敗時，降級使用本地模擬資料庫
-    const db = getLocalDb()
-    return {
-      quests: db.quests,
-      milestones: db.milestones,
-      shopItems: db.shopItems,
-      gifts: db.gifts || [],
-      logs: db.logs,
-      config: db.config,
-      offline: true,
-      error: 'Google Sheets 連線失敗，已自動切換至離線模式。'
-    }
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Failed to connect to Google Sheets: ${error.message}`
+    })
   }
 })

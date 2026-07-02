@@ -4,33 +4,31 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const sheetUrl = config.sheetUrl
   
+  if (!sheetUrl) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+    })
+  }
+
   let quests: any[] = []
   let logs: any[] = []
   let configData: any = {}
-  let isOffline = true
   
-  // 1. 優先從 Google Sheets 載入最新日誌與設定
-  if (sheetUrl) {
-    try {
-      const response = await $fetch<any>(`${sheetUrl}?action=getData`, {
-        method: 'GET',
-        timeout: 10000
-      })
-      quests = response.quests || []
-      logs = response.logs || []
-      configData = response.config || {}
-      isOffline = false
-    } catch (err) {
-      console.error('Recap API failed to fetch from Sheets, falling back to localDb:', err)
-    }
-  }
-  
-  // 降級使用本地暫存
-  if (isOffline) {
-    const db = getLocalDb()
-    quests = db.quests
-    logs = db.logs
-    configData = db.config
+  try {
+    const response = await $fetch<any>(`${sheetUrl}?action=getData`, {
+      method: 'GET',
+      timeout: 10000
+    })
+    quests = response.quests || []
+    logs = response.logs || []
+    configData = response.config || {}
+  } catch (err: any) {
+    console.error('Recap API failed to fetch from Sheets:', err.message)
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Failed to fetch data from Google Sheets for recap: ${err.message}`
+    })
   }
   
   // 2. 計算本週起始日 (週日 00:00:00) 的 YYYY-MM-DD 本地日期字串

@@ -508,24 +508,22 @@ const playerClass = computed(() => {
    2.0 新增：頂部 Slim 導航列樣式
    ========================================== */
 .guild-top-bar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 999;
-  /* 負邊距完美抵消外層 padding，在行動端實現貼邊滿版 */
-  margin-left: -1.05rem;
-  margin-right: -1.05rem;
-  width: calc(100% + 2.1rem);
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
   border-radius: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0.85rem;
-  background: rgba(20, 24, 35, 0.9);
+  padding: 0.65rem 1rem;
+  background: rgba(11, 12, 16, 0.95); /* 與 body 背景融合 */
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 1rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
 }
 

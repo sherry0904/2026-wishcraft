@@ -191,8 +191,7 @@ function canUseSkip(player: 'A' | 'B'): boolean {
     gap: 1rem;
   }
   .coop-status-center {
-    grid-row: 1;
-    margin: 0.5rem 0;
+    margin: 0.75rem 0;
   }
   .coop-connector {
     display: none;

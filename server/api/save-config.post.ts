@@ -21,16 +21,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!sheetUrl) {
-    // 離線模式：寫入本地 local_db.json
-    const db = getLocalDb()
-    db.config.GuildName = body.guildName
-    db.config.PlayerAName = body.playerAName
-    db.config.PlayerBName = body.playerBName
-    db.config.AIPrompt = body.aiPrompt
-    db.config.WeeklyQuota = body.weeklyQuota
-    
-    saveLocalDb(db)
-    return { success: true, offline: true }
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+    })
   }
 
   try {
@@ -50,21 +44,9 @@ export default defineEventHandler(async (event) => {
     return { success: true, response }
   } catch (error: any) {
     console.error('Failed to save config to Google Sheets:', error.message)
-    
-    // 轉發失敗時降級更新本地資料庫
-    const db = getLocalDb()
-    db.config.GuildName = body.guildName
-    db.config.PlayerAName = body.playerAName
-    db.config.PlayerBName = body.playerBName
-    db.config.AIPrompt = body.aiPrompt
-    db.config.WeeklyQuota = body.weeklyQuota
-    
-    saveLocalDb(db)
-    
-    return { 
-      success: true, 
-      offline: true, 
-      warning: '無法同步設定至 Google Sheets，已先暫存於本地。' 
-    }
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Failed to save configuration to Google Sheets: ${error.message}`
+    })
   }
 })

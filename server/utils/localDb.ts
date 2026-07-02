@@ -1,9 +1,3 @@
-import fs from 'fs'
-import path from 'path'
-
-// 定義模擬資料庫的儲存路徑
-const DB_FILE = path.resolve(process.cwd(), 'local_db.json')
-
 export interface LocalQuest {
   Id: string;
   Player: 'A' | 'B' | 'Both';
@@ -91,7 +85,6 @@ const DEFAULT_SHOP_ITEMS: LocalMilestone[] = [
   { Tier: 8, XPThreshold: 150, RewardName: '🎨 自訂驚喜兌現券', Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！', Unlocked: false }
 ]
 
-
 // 預設設定
 const DEFAULT_CONFIG = {
   GuildName: '日常養成基地',
@@ -101,64 +94,17 @@ const DEFAULT_CONFIG = {
   WeeklyQuota: 2
 }
 
-
-
 export function getLocalDb(): LocalDbSchema {
-  if (!fs.existsSync(DB_FILE)) {
-    const initialDb: LocalDbSchema = {
-      quests: DEFAULT_QUESTS,
-      milestones: DEFAULT_MILESTONES,
-      shopItems: DEFAULT_SHOP_ITEMS,
-      gifts: [],
-      logs: [],
-      config: DEFAULT_CONFIG
-    }
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8')
-    return initialDb
-  }
-  
-  try {
-    const content = fs.readFileSync(DB_FILE, 'utf-8')
-    const parsed = JSON.parse(content) as LocalDbSchema
-    
-    // 確保 shopItems 存在
-    if (!parsed.shopItems) {
-      parsed.shopItems = DEFAULT_SHOP_ITEMS
-      parsed.milestones = DEFAULT_MILESTONES
-    }
-
-    // 確保 Tier 8 (自訂驚喜兌現券) 存在於目前載入的資料庫中
-    if (parsed.shopItems && !parsed.shopItems.some((i: any) => i.Tier === 8)) {
-      parsed.shopItems.push({
-        Tier: 8,
-        XPThreshold: 150,
-        RewardName: '🎨 自訂驚喜兌現券',
-        Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！',
-        Unlocked: false
-      })
-    }
-    
-    // 確保 gifts 存在
-    if (!parsed.gifts) {
-      parsed.gifts = []
-    }
-    
-    saveLocalDb(parsed)
-    return parsed
-  } catch (e) {
-    const initialDb: LocalDbSchema = {
-      quests: DEFAULT_QUESTS,
-      milestones: DEFAULT_MILESTONES,
-      shopItems: DEFAULT_SHOP_ITEMS,
-      gifts: [],
-      logs: [],
-      config: DEFAULT_CONFIG
-    }
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8')
-    return initialDb
+  return {
+    quests: DEFAULT_QUESTS,
+    milestones: DEFAULT_MILESTONES,
+    shopItems: DEFAULT_SHOP_ITEMS,
+    gifts: [],
+    logs: [],
+    config: DEFAULT_CONFIG
   }
 }
 
 export function saveLocalDb(data: LocalDbSchema) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8')
+  // No-op: 不寫入磁碟，以配合 Serverless 唯讀環境
 }
