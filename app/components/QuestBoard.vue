@@ -43,7 +43,7 @@
                 type="checkbox" 
                 class="quest-checkbox-input"
                 :checked="isQuestCompleted(quest.Id) || hasSkipped"
-                :disabled="!activePlayer || hasSkipped"
+                :disabled="!activePlayer || hasSkipped || isReadOnly"
                 @change="handleToggle(quest.Id, ($event.target as HTMLInputElement).checked, quest.XP)"
               />
               <span class="custom-checkbox"></span>
@@ -117,6 +117,9 @@
     <div v-if="!activePlayer" class="spectator-alert">
       💡 提示：您目前處於唯讀觀戰模式，無法勾選任務。若要記錄您的日常養成，請點擊選角畫面登入身分。
     </div>
+    <div v-else-if="isReadOnly" class="readonly-alert">
+      🔒 提示：您正在檢視過去的任務紀錄。由於已超過 3 天補記期限（僅能補記今天、昨天與前天），此頁面已自動鎖定，僅供查閱。
+    </div>
   </div>
 </template>
 
@@ -144,6 +147,7 @@ const props = defineProps<{
   hasSkippedA: boolean
   hasSkippedB: boolean
   logs: any[]
+  isReadOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -245,20 +249,9 @@ function isPartnerQuestCompleted(questId: string): boolean {
   return props.completedQuestsB.includes(questId)
 }
 
-// 獲取已完成任務在 database 紀錄中的真實獲得點數
-function getCompletedQuestXP(questId: string, player: 'A' | 'B'): number | null {
-  const todayStr = getTodayDateStr()
-  const log = props.logs.find(l => 
-    l.Player === player &&
-    l.QuestId === questId && 
-    parseToLocalDateStr(l.Date) === todayStr && 
-    !l.IsSkipPass
-  )
-  return log ? Number(log.XP) : null
-}
-
-// 觸發切換 (不折半，回歸正常 XP 加分)
+// 觸發切換 (不折半，回歸正常 XP 加分；唯讀狀態下拒絕變更)
 function handleToggle(questId: string, completed: boolean, originalXp: number) {
+  if (props.isReadOnly) return
   emit('toggleQuest', { questId, completed, xp: originalXp })
 }
 </script>
@@ -536,5 +529,18 @@ function handleToggle(questId: string, completed: boolean, originalXp: number) {
   color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.5;
+}
+
+.readonly-alert {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 183, 3, 0.06);
+  border: 1px solid rgba(255, 183, 3, 0.2);
+  color: var(--neon-gold);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  font-weight: 700;
+  text-align: center;
 }
 </style>

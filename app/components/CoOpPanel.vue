@@ -148,6 +148,7 @@ const props = defineProps<{
   isComboActive: boolean
   comboCategory?: string
   isOffline: boolean
+  isReadOnly?: boolean
 }>()
 
 defineEmits<{
@@ -166,6 +167,7 @@ const playerBProgressPercentage = computed(() => {
 
 // 判斷當前玩家是否可以使用請假券
 function canUseSkip(player: 'A' | 'B'): boolean {
+  if (props.isReadOnly) return false
   if (props.activePlayer !== player) return false
   if (player === 'A' && props.playerAHasSkipped) return false
   if (player === 'B' && props.playerBHasSkipped) return false

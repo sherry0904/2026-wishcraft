@@ -96,7 +96,7 @@
     <!-- 2.0 新增：我的收件夾 / 禮物卡盒 (Gift Box) -->
     <div class="giftbox-section">
       <div class="giftbox-header-row">
-        <div class="section-title">🎁 我的禮物卡盒 (INCOMING GIFTS)</div>
+        <div class="section-title">🎁 我的禮物卡盒</div>
         <button 
           v-if="activePlayer" 
           class="btn-send-custom-note"
@@ -184,7 +184,9 @@
             </div>
 
             <div class="gift-footer">
-              <span class="gift-time-txt">{{ formatTimeAgo(gift.Timestamp) }}</span>
+              <span class="gift-time-txt">
+                {{ gift.UsedTimestamp ? `已於 ${formatDateTime(gift.UsedTimestamp)} 兌換` : `已兌換 (${formatTimeAgo(gift.Timestamp)})` }}
+              </span>
             </div>
           </div>
         </div>
@@ -866,7 +868,7 @@ async function claimGift(giftId: string) {
   }
 }
 
-// 格式化時間差
+// 格式化時間差 (未滿一週顯示相對時間，超過一週顯示 MM/DD HH:MM 獲得)
 function formatTimeAgo(timestampStr: string): string {
   if (!timestampStr) return ''
   const t = new Date(timestampStr).getTime()
@@ -875,11 +877,32 @@ function formatTimeAgo(timestampStr: string): string {
   const min = 60 * 1000
   const hr = 60 * min
   const day = 24 * hr
+  const week = 7 * day
   
   if (diff < min) return '剛剛'
   if (diff < hr) return `${Math.floor(diff / min)} 分鐘前`
   if (diff < day) return `${Math.floor(diff / hr)} 小時前`
-  return `${Math.floor(diff / day)} 天前`
+  if (diff < week) return `${Math.floor(diff / day)} 天前`
+  
+  // 超過一個星期，顯示幾月幾號幾點獲得
+  const d = new Date(timestampStr)
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const date = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${month}/${date} ${hours}:${minutes} 獲得`
+}
+
+// 格式化兌換時間：YYYY/MM/DD HH:MM
+function formatDateTime(timestampStr: string): string {
+  if (!timestampStr) return ''
+  const d = new Date(timestampStr)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const date = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}/${month}/${date} ${hours}:${minutes}`
 }
 
 function triggerConfetti() {

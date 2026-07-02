@@ -73,16 +73,52 @@
       
       <!-- 1. 任務分頁 -->
       <div v-if="currentNavTab === 'quests'" class="tab-view-content">
-        <!-- 今日日期與雙人已獲得點數看板 -->
+        <!-- 日期導航切換與雙人已獲得點數看板 -->
         <div class="today-summary-bar game-card">
-          <div class="today-date-info">
-            <span class="calendar-icon">📅</span>
-            <span class="date-text">{{ formattedTodayDate }}</span>
+          <div class="summary-bar-top">
+            <div class="date-navigator">
+              <button 
+                class="btn-date-nav" 
+                :disabled="isSelectedDateLimit"
+                @click="changeSelectedDate(-1)"
+                title="前一天"
+              >
+                ◀
+              </button>
+              <span class="date-text">
+                {{ formattedSelectedDate }}
+                <span class="date-offset-badge" :class="{ 'badge-readonly': isReadOnly }">
+                  {{ dateOffsetLabel }}
+                </span>
+                <span v-if="isReadOnly" class="lock-icon" title="已超過 3 天編輯期限，僅供檢視">🔒 唯讀鎖定</span>
+              </span>
+              <button 
+                class="btn-date-nav" 
+                :disabled="isSelectedDateToday"
+                @click="changeSelectedDate(1)"
+                title="後一天"
+              >
+                ▶
+              </button>
+            </div>
+            
+            <!-- 回今天按鈕，靠最右側獨立顯示，簡潔不搶戲 -->
+            <button 
+              v-if="!isSelectedDateToday"
+              class="btn-back-today"
+              @click="selectedDateOffset = 0"
+              title="回到今天"
+            >
+              今日
+            </button>
           </div>
-          <div class="today-points-info">
-            <span class="xp-pill pill-a">{{ playerAName }}今日已得: +{{ xpEarnedTodayA }} XP</span>
-            <span class="xp-pill pill-b">{{ playerBName }}今日已得: +{{ xpEarnedTodayB }} XP</span>
-            <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO 1.2x</span>
+
+          <div class="summary-bar-bottom">
+            <div class="today-points-info">
+              <span class="xp-pill pill-a">{{ playerAName }}日得點: +{{ xpEarnedTodayA }} XP</span>
+              <span class="xp-pill pill-b">{{ playerBName }}日得點: +{{ xpEarnedTodayB }} XP</span>
+              <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO 1.2x</span>
+            </div>
           </div>
         </div>
 
@@ -102,6 +138,7 @@
           :is-combo-active="isComboActiveToday"
           :combo-category="comboCategory"
           :is-offline="isOffline"
+          :is-read-only="isReadOnly"
           @use-skip="onUseSkip"
         />
 
@@ -116,6 +153,7 @@
           :has-skipped-a="hasSkippedA"
           :has-skipped-b="hasSkippedB"
           :logs="logs"
+          :is-read-only="isReadOnly"
           @toggle-quest="onToggleQuest"
         />
       </div>
@@ -417,23 +455,56 @@ function getTodayDateStr(): string {
 }
 
 const todayStr = getTodayDateStr()
+const selectedDateOffset = ref(0) // 0: 今天, -1: 昨天, -2: 前天, -3 到 -6: 更早日期
 
-// 1. 判定雙方今日是否使用請假券 (Skip Pass)
+const selectedDateStr = computed(() => {
+  const d = new Date()
+  d.setDate(d.getDate() + selectedDateOffset.value)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+})
+
+const isReadOnly = computed(() => {
+  // 只允許 3 天內編輯：今天(0)、昨天(-1)、前天(-2)，超過則唯讀鎖定
+  return selectedDateOffset.value < -2
+})
+
+function changeSelectedDate(delta: number) {
+  const nextOffset = selectedDateOffset.value + delta
+  // 限制往前最多查閱 7 天（即 offset 在 0 到 -6 之間）
+  if (nextOffset <= 0 && nextOffset >= -6) {
+    selectedDateOffset.value = nextOffset
+  }
+}
+
+const isSelectedDateToday = computed(() => selectedDateOffset.value === 0)
+const isSelectedDateLimit = computed(() => selectedDateOffset.value === -6)
+
+const dateOffsetLabel = computed(() => {
+  if (selectedDateOffset.value === 0) return '今天'
+  if (selectedDateOffset.value === -1) return '昨天'
+  if (selectedDateOffset.value === -2) return '前天'
+  return `${Math.abs(selectedDateOffset.value)} 天前`
+})
+
+// 1. 判定雙方在選定日期是否使用請假券 (Skip Pass)
 const hasSkippedA = computed(() => {
-  return logs.value.some(l => l.Player === 'A' && l.QuestId === 'skip' && parseToLocalDateStr(l.Date) === todayStr)
+  return logs.value.some(l => l.Player === 'A' && l.QuestId === 'skip' && parseToLocalDateStr(l.Date) === selectedDateStr.value)
 })
 
 const hasSkippedB = computed(() => {
-  return logs.value.some(l => l.Player === 'B' && l.QuestId === 'skip' && parseToLocalDateStr(l.Date) === todayStr)
+  return logs.value.some(l => l.Player === 'B' && l.QuestId === 'skip' && parseToLocalDateStr(l.Date) === selectedDateStr.value)
 })
 
-// 2. 取得雙方今日已完成的任務 ID 列表 (若請假，則視為完成所有任務)
+// 2. 取得雙方在選定日期已完成的任務 ID 列表 (若請假，則視為完成所有任務)
 const completedQuestsAToday = computed(() => {
   if (hasSkippedA.value) {
     return quests.value.filter(q => (q.Player === 'A' || q.Player === 'Both') && q.Active).map(q => q.Id)
   }
   return logs.value
-    .filter(l => l.Player === 'A' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
+    .filter(l => l.Player === 'A' && parseToLocalDateStr(l.Date) === selectedDateStr.value && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
     .map(l => l.QuestId)
 })
 
@@ -442,7 +513,7 @@ const completedQuestsBToday = computed(() => {
     return quests.value.filter(q => (q.Player === 'B' || q.Player === 'Both') && q.Active).map(q => q.Id)
   }
   return logs.value
-    .filter(l => l.Player === 'B' && parseToLocalDateStr(l.Date) === todayStr && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
+    .filter(l => l.Player === 'B' && parseToLocalDateStr(l.Date) === selectedDateStr.value && !l.IsSkipPass && quests.value.some(q => q.Id === l.QuestId))
     .map(l => l.QuestId)
 })
 
@@ -485,14 +556,15 @@ const isComboActiveToday = computed(() => {
   return aDoneCombo && bDoneCombo
 })
 
-const formattedTodayDate = computed(() => {
+const formattedSelectedDate = computed(() => {
   const d = new Date()
+  d.setDate(d.getDate() + selectedDateOffset.value)
   const year = d.getFullYear()
   const month = d.getMonth() + 1
   const date = d.getDate()
-  const dayNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const dayNames = ['日', '一', '二', '三', '四', '五', '六']
   const dayName = dayNames[d.getDay()]
-  return `${year} 年 ${month} 月 ${date} 日 ${dayName}`
+  return `${year}/${month}/${date} (${dayName})`
 })
 
 const xpEarnedTodayA = computed(() => {
@@ -717,7 +789,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   // 1. 前端 UI 立即反應 (樂觀更新)
   const tempLog = {
     Timestamp: new Date().toISOString(),
-    Date: todayStr,
+    Date: selectedDateStr.value,
     Player: activePlayer.value,
     QuestId: payload.questId,
     XP: payload.xp,
@@ -730,7 +802,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
     logs.value.push(tempLog)
   } else {
     const idx = logs.value.findIndex(l => 
-      parseToLocalDateStr(l.Date) === todayStr && 
+      parseToLocalDateStr(l.Date) === selectedDateStr.value && 
       l.Player === activePlayer.value && 
       l.QuestId === payload.questId && 
       !l.IsSkipPass
@@ -749,7 +821,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
       body: {
         player: activePlayer.value,
         questId: payload.questId,
-        date: todayStr,
+        date: selectedDateStr.value,
         completed: payload.completed,
         xp: payload.xp
       }
@@ -773,7 +845,7 @@ async function onUseSkip(player: 'A' | 'B') {
   // 1. 前端樂觀更新
   const tempLog = {
     Timestamp: new Date().toISOString(),
-    Date: todayStr,
+    Date: selectedDateStr.value,
     Player: player,
     QuestId: 'skip',
     XP: 0,
@@ -793,7 +865,7 @@ async function onUseSkip(player: 'A' | 'B') {
       method: 'POST',
       body: {
         player: player,
-        date: todayStr
+        date: selectedDateStr.value
       }
     })
 
@@ -1083,13 +1155,27 @@ onMounted(() => {
 /* 今日得點與日期狀態列 */
 .today-summary-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 0.85rem 1.25rem;
   margin-bottom: 1.25rem;
   background: rgba(20, 24, 35, 0.5);
   border: 1px solid var(--border-color);
   border-radius: 12px;
+}
+
+.summary-bar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.summary-bar-bottom {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
 }
 
 .today-date-info {
@@ -1098,8 +1184,95 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
+/* 日期導航器樣式 */
+.date-navigator {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn-date-nav {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  transition: var(--transition-smooth);
+}
+
+.btn-date-nav:hover:not(:disabled) {
+  background: var(--neon-purple);
+  border-color: var(--neon-purple);
+  box-shadow: 0 0 8px rgba(157, 78, 221, 0.4);
+}
+
+.btn-date-nav:disabled {
+  background: rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.date-offset-badge {
+  font-size: 0.7rem;
+  background: rgba(6, 214, 160, 0.15);
+  color: var(--neon-green);
+  border: 1px solid rgba(6, 214, 160, 0.3);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.35rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.date-offset-badge.badge-readonly {
+  background: rgba(255, 183, 3, 0.1);
+  color: var(--neon-gold);
+  border-color: rgba(255, 183, 3, 0.25);
+}
+
+.lock-icon {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--neon-gold);
+  margin-left: 0.4rem;
+  background: rgba(255, 183, 3, 0.1);
+  border: 1px solid rgba(255, 183, 3, 0.2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
 .calendar-icon {
   font-size: 1.15rem;
+}
+
+.btn-back-today {
+  background: rgba(157, 78, 221, 0.12);
+  border: 1px solid rgba(157, 78, 221, 0.35);
+  color: #c8b6ff;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 0 5px rgba(157, 78, 221, 0.1);
+  white-space: nowrap;
+}
+
+.btn-back-today:hover {
+  background: var(--neon-purple);
+  border-color: var(--neon-purple);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(157, 78, 221, 0.5);
 }
 
 .date-text {
@@ -1154,10 +1327,12 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .today-summary-bar {
-    flex-direction: column;
-    gap: 0.75rem;
-    align-items: flex-start;
     padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+  .summary-bar-top {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   .today-points-info {
     width: 100%;
