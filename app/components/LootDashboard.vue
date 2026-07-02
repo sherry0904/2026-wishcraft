@@ -283,13 +283,13 @@
             </div>
 
             <div class="modal-actions">
-              <button class="btn-cancel" @click="showModal = false">取消</button>
+              <button class="btn-cancel" :disabled="isRedeemingCoupon" @click="showModal = false">取消</button>
               <button 
                 class="btn-confirm-redeem" 
-                :disabled="selectedReward?.Tier === 8 && !customCouponTitle.trim()"
+                :disabled="isRedeemingCoupon || (selectedReward?.Tier === 8 && !customCouponTitle.trim())"
                 @click="executeRedeem"
               >
-                確認扣點
+                {{ isRedeemingCoupon ? '正在兌換...' : '確認扣點' }}
               </button>
             </div>
           </div>
@@ -350,7 +350,7 @@
             </div>
 
             <div class="modal-actions">
-              <button class="btn-cancel" @click="showCustomNoteModal = false">取消</button>
+              <button class="btn-cancel" :disabled="isSendingNote" @click="showCustomNoteModal = false">取消</button>
               <button 
                 class="btn-confirm-redeem" 
                 :disabled="isSendingNote"
@@ -391,8 +391,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, inject } from 'vue'
 import confetti from 'canvas-confetti'
+
+const showToast = inject<any>('showToast')
+const removeToast = inject<any>('removeToast')
 
 export interface Milestone {
   Tier: number
@@ -443,6 +446,7 @@ const selectedThemeEmoji = ref('❤️')
 const customNoteMessage = ref('')
 const attachedXpToSend = ref(0)
 const isSendingNote = ref(false)
+const isRedeemingCoupon = ref(false)
 
 const cardThemes = [
   { emoji: '❤️', label: '溫馨' },
@@ -551,8 +555,10 @@ function confirmRedeem(reward: any) {
 
 // 執行商店點數商品兌換
 async function executeRedeem() {
-  if (!selectedReward.value || !props.activePlayer) return
-  showModal.value = false
+  if (!selectedReward.value || !props.activePlayer || isRedeemingCoupon.value) return
+  isRedeemingCoupon.value = true
+
+  const toastId = showToast ? showToast('正在與 Google Sheets 同步中...', 'loading', 0) : null
   
   const item = selectedReward.value
   const buyer = props.activePlayer
@@ -586,7 +592,9 @@ async function executeRedeem() {
     })
     
     if (res.error) {
-      alert(res.error)
+      if (removeToast && toastId) removeToast(toastId)
+      if (showToast) showToast(res.error, 'error')
+      isRedeemingCoupon.value = false
       return
     }
     
@@ -594,10 +602,20 @@ async function executeRedeem() {
     customCouponTitle.value = ''
     giftMessage.value = ''
     
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) {
+      const targetName = isGift ? '夥伴的禮物盒' : '您的卡盒'
+      showToast(`已成功扣除 ${item.XPThreshold} XP，卡片已存入${targetName}！`, 'success')
+    }
+
+    showModal.value = false
     triggerConfetti()
     emit('refreshData')
   } catch (err: any) {
-    alert(`兌換出錯: ${err.message}`)
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) showToast(`兌換出錯: ${err.message}`, 'error')
+  } finally {
+    isRedeemingCoupon.value = false
   }
 }
 
@@ -611,8 +629,10 @@ function openCustomNoteModal() {
 
 // 執行送出愛心自訂卡片
 async function executeSendCustomNote() {
-  if (!props.activePlayer) return
+  if (!props.activePlayer || isSendingNote.value) return
   isSendingNote.value = true
+
+  const toastId = showToast ? showToast('正在傳送愛心卡中...', 'loading', 0) : null
   
   const buyer = props.activePlayer
   const partner = buyer === 'A' ? 'B' : 'A'
@@ -639,18 +659,27 @@ async function executeSendCustomNote() {
     })
     
     isSendingNote.value = false
-    showCustomNoteModal.value = false
     
     if (res.error) {
-      alert(res.error)
+      if (removeToast && toastId) removeToast(toastId)
+      if (showToast) showToast(res.error, 'error')
       return
+    }
+
+    showCustomNoteModal.value = false
+    
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) {
+      const xpSuffix = attachedXpToSend.value > 0 ? `並附贈了 ${attachedXpToSend.value} XP ` : ''
+      showToast(`愛心卡已成功送達對方的卡盒！${xpSuffix}🎁`, 'success')
     }
     
     triggerConfetti()
     emit('refreshData')
   } catch (err: any) {
     isSendingNote.value = false
-    alert(`送出卡片出錯: ${err.message}`)
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) showToast(`送出卡片出錯: ${err.message}`, 'error')
   }
 }
 
@@ -691,18 +720,19 @@ async function spinGacha() {
       isSpanning.value = false
       
       if (res.error) {
-        alert(res.error)
+        if (showToast) showToast(res.error, 'error')
         return
       }
       
       gachaResult.value = reward
       showGachaResult.value = true
       
+      if (showToast) showToast(`恭喜抽中【${reward.RewardName}】！🎉`, 'success')
       triggerConfetti()
       emit('refreshData')
     } catch (err: any) {
       isSpanning.value = false
-      alert(`扭蛋出錯: ${err.message}`)
+      if (showToast) showToast(`扭蛋出錯: ${err.message}`, 'error')
     }
   }, 2500)
 }
@@ -711,6 +741,11 @@ async function spinGacha() {
 async function claimGift(giftId: string) {
   if (claimingGifts.value[giftId]) return
   claimingGifts.value[giftId] = true
+
+  const gift = props.gifts.find(g => g.Id === giftId)
+  const giftName = gift ? gift.RewardName : '禮物卡'
+  
+  const toastId = showToast ? showToast(`正在使用並兌現【${giftName}】...`, 'loading', 0) : null
   
   try {
     const res = await $fetch<any>('/api/use-gift', {
@@ -721,17 +756,28 @@ async function claimGift(giftId: string) {
     })
     
     if (res.error) {
-      alert(res.error)
+      if (removeToast && toastId) removeToast(toastId)
+      if (showToast) showToast(res.error, 'error')
       claimingGifts.value[giftId] = false
       return
     }
     
     // 樂觀更新：在 0ms 內立馬將這張卡片藏入已使用/已讀區域，徹底防止 API 連線時的按鈕狀態跳動！
     usedGiftIds.value.push(giftId)
+    
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) {
+      const extraXpMsg = (gift && gift.AttachedXp && gift.AttachedXp > 0)
+        ? `，且已獲得附贈的 ${gift.AttachedXp} XP 點數！`
+        : '！記得請夥伴為您兌現唷～'
+      showToast(`已成功使用【${giftName}】${extraXpMsg}`, 'success')
+    }
+
     triggerConfetti()
     emit('refreshData')
   } catch (err: any) {
-    alert(`兌換禮物卡出錯: ${err.message}`)
+    if (removeToast && toastId) removeToast(toastId)
+    if (showToast) showToast(`兌換禮物卡出錯: ${err.message}`, 'error')
     claimingGifts.value[giftId] = false
   } finally {
     // 延遲重設以防 DOM 還沒重新渲染時跳動

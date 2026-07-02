@@ -1,5 +1,13 @@
 <template>
   <div class="guild-dashboard" :class="{ 'pb-nav': activePlayer }">
+    <!-- 2.0 新增：高質感全域 Toast 提示 -->
+    <div class="toast-container">
+      <div v-for="toast in toasts" :key="toast.id" class="toast-item" :class="`toast-${toast.type}`">
+        <span class="toast-icon">{{ toast.icon }}</span>
+        <span class="toast-msg">{{ toast.message }}</span>
+      </div>
+    </div>
+
     <!-- 讀取中遮罩 -->
     <div v-if="isLoading" class="loading-overlay">
       <div class="loading-scanner">
@@ -382,8 +390,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, provide } from 'vue'
 import { useRoute } from '#app'
+
+// 2.0 新增：高質感全域 Toast 提示訊息系統
+export interface Toast {
+  id: string
+  message: string
+  type: 'success' | 'error' | 'warning' | 'loading' | 'info'
+  icon?: string
+}
+
+const toasts = ref<Toast[]>([])
+
+function showToast(message: string, type: 'success' | 'error' | 'warning' | 'loading' | 'info' = 'success', duration = 3000) {
+  const id = Math.random().toString(36).substring(2, 9)
+  let icon = '🔔'
+  if (type === 'success') icon = '✅'
+  else if (type === 'error') icon = '❌'
+  else if (type === 'warning') icon = '⚠️'
+  else if (type === 'loading') icon = '⏳'
+  else if (type === 'info') icon = '💡'
+  
+  const toast: Toast = { id, message, type, icon }
+  toasts.value.push(toast)
+  
+  if (type !== 'loading' && duration > 0) {
+    setTimeout(() => {
+      removeToast(id)
+    }, duration)
+  }
+  return id
+}
+
+function removeToast(id: string) {
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+
+provide('showToast', showToast)
+provide('removeToast', removeToast)
 import confetti from 'canvas-confetti'
 import type { Quest } from '~/components/QuestBoard.vue'
 import type { Milestone } from '~/components/LootDashboard.vue'
@@ -786,6 +831,10 @@ async function fetchAllData() {
 async function onToggleQuest(payload: { questId: string; completed: boolean; xp: number }) {
   if (!activePlayer.value) return
 
+  // 尋找任務名稱
+  const quest = quests.value.find(q => q.Id === payload.questId)
+  const questName = quest ? quest.Name : '任務'
+
   // 1. 前端 UI 立即反應 (樂觀更新)
   const tempLog = {
     Timestamp: new Date().toISOString(),
@@ -800,6 +849,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
 
   if (payload.completed) {
     logs.value.push(tempLog)
+    showToast(`成功完成【${questName}】！獲得 +${payload.xp} XP ⭐`, 'success')
   } else {
     const idx = logs.value.findIndex(l => 
       parseToLocalDateStr(l.Date) === selectedDateStr.value && 
@@ -808,6 +858,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
       !l.IsSkipPass
     )
     if (idx !== -1) logs.value.splice(idx, 1)
+    showToast(`已取消【${questName}】的打卡 ↩️`, 'info')
   }
 
   // 檢查是否升級或觸發里程碑解鎖
@@ -829,18 +880,22 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
     
     if (res.warning) {
       warningMessage.value = res.warning
+      showToast(res.warning, 'warning')
     }
   } catch (err: any) {
     // 同步失敗，回滾狀態
     logs.value = oldLogs
     lastXpVal = totalXp.value
     errorMessage.value = err.data?.message || '同步任務失敗，已回滾變更。'
+    showToast(errorMessage.value, 'error')
   }
 }
 
 // 11. 使用請假券事件
 async function onUseSkip(player: 'A' | 'B') {
   if (activePlayer.value !== player) return
+
+  const toastId = showToast('正在登錄請假券...', 'loading', 0)
 
   // 1. 前端樂觀更新
   const tempLog = {
@@ -869,19 +924,25 @@ async function onUseSkip(player: 'A' | 'B') {
       }
     })
 
+    removeToast(toastId)
+    showToast('已成功使用請假券！今天可以好好休息囉～ 🛋️', 'success')
+
     if (res.warning) {
       warningMessage.value = res.warning
     }
   } catch (err: any) {
     logs.value = oldLogs
     lastXpVal = totalXp.value
+    removeToast(toastId)
     errorMessage.value = err.data?.message || '使用請假券失敗，請重試。'
+    showToast(errorMessage.value, 'error')
   }
 }
 
 // 12. 儲存公會設定與 AI 提示詞
 async function onSaveConfig(payload: { guildName: string; playerAName: string; playerBName: string; aiPrompt: string; weeklyQuota: number }) {
   isSavingConfig.value = true
+  const toastId = showToast('正在儲存並同步公會設定...', 'loading', 0)
   
   // 本地更新
   configData.value.GuildName = payload.guildName
@@ -902,12 +963,17 @@ async function onSaveConfig(payload: { guildName: string; playerAName: string; p
       }
     })
     
+    removeToast(toastId)
+    showToast('公會設定已成功儲存並同步至 Google Sheets！', 'success')
+    
     if (res.warning) {
       warningMessage.value = res.warning
     }
     await fetchAllData()
   } catch (err: any) {
+    removeToast(toastId)
     errorMessage.value = err.data?.message || '儲存設定失敗，請重試。'
+    showToast(errorMessage.value, 'error')
   } finally {
     isSavingConfig.value = false
   }
@@ -1945,5 +2011,87 @@ onMounted(() => {
   border-color: var(--neon-gold);
   color: #fff;
   box-shadow: 0 0 8px rgba(255, 183, 3, 0.15);
+}
+
+/* ==========================================================================
+   2.0 新增：全域 Toast 樣式
+   ========================================================================== */
+.toast-container {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+  width: 90%;
+  max-width: 380px;
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  background: rgba(18, 22, 32, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #fff;
+  pointer-events: auto;
+  animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.toast-success {
+  border-color: rgba(6, 214, 160, 0.4);
+  box-shadow: 0 4px 15px rgba(6, 214, 160, 0.15);
+}
+
+.toast-error {
+  border-color: rgba(255, 77, 109, 0.4);
+  box-shadow: 0 4px 15px rgba(255, 77, 109, 0.15);
+}
+
+.toast-warning {
+  border-color: rgba(255, 183, 3, 0.4);
+  box-shadow: 0 4px 15px rgba(255, 183, 3, 0.15);
+}
+
+.toast-loading {
+  border-color: rgba(157, 78, 221, 0.4);
+  box-shadow: 0 4px 15px rgba(157, 78, 221, 0.15);
+}
+
+.toast-info {
+  border-color: rgba(0, 180, 216, 0.4);
+  box-shadow: 0 4px 15px rgba(0, 180, 216, 0.15);
+}
+
+.toast-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.toast-msg {
+  flex-grow: 1;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 </style>
