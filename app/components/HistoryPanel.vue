@@ -50,8 +50,7 @@
               </div>
               
               <div class="ledger-amount-col">
-                <span v-if="log.IsSkipPass" class="amount-val text-muted">--</span>
-                <span v-else-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
+                <span v-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
                   {{ log.XP }}
                 </span>
                 <span v-else class="amount-val text-gain">

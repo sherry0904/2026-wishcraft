@@ -112,7 +112,7 @@
                 <span class="date-offset-badge" :class="{ 'badge-readonly': isReadOnly }">
                   {{ dateOffsetLabel }}
                 </span>
-                <span v-if="isReadOnly" class="lock-icon" title="已超過 3 天編輯期限，僅供檢視">🔒 唯讀鎖定</span>
+                <span v-if="isReadOnly" class="lock-icon" title="已超過 3 天編輯期限，僅供檢視">🔒</span>
               </span>
               <button 
                 class="btn-date-nav" 
@@ -123,14 +123,6 @@
                 ▶
               </button>
             </div>
-            <button 
-              v-if="!isSelectedDateToday"
-              class="btn-back-today"
-              @click="selectedDateOffset = 0"
-              title="回到今天"
-            >
-              今日
-            </button>
           </div>
 
           <div class="summary-bar-bottom">
@@ -936,7 +928,16 @@ async function fetchAllData(isAutoRefresh = false) {
     milestones.value = data.milestones || []
     shopItems.value = data.shopItems || []
     gifts.value = data.gifts || []
-    logs.value = data.logs || []
+    
+    const fetchedLogs = data.logs || []
+    // 預先計算請假券應得的滿分點數，讓全站 (包含點數存摺與總分) 都能正確加上
+    fetchedLogs.forEach((log: any) => {
+      if ((log.QuestId === 'skip' || log.IsSkipPass) && (!log.XP || Number(log.XP) === 0)) {
+        const playerQuests = quests.value.filter(q => (q.Player === log.Player || q.Player === 'Both') && q.Active)
+        log.XP = playerQuests.reduce((sum, q) => sum + q.XP, 0)
+      }
+    })
+    logs.value = fetchedLogs
     configData.value = data.config || {}
     isOffline.value = !!data.offline
     
@@ -1047,12 +1048,15 @@ async function onUseSkip(player: 'A' | 'B') {
   const toastId = showToast('正在登錄請假券...', 'loading', 0)
 
   // 1. 前端樂觀更新
+  const playerQuests = quests.value.filter(q => (q.Player === player || q.Player === 'Both') && q.Active)
+  const fullXp = playerQuests.reduce((sum, q) => sum + q.XP, 0)
+
   const tempLog = {
     Timestamp: new Date().toISOString(),
     Date: selectedDateStr.value,
     Player: player,
     QuestId: 'skip',
-    XP: 0,
+    XP: fullXp,
     IsSkipPass: true
   }
 
@@ -1486,8 +1490,8 @@ onMounted(() => {
 }
 
 .summary-bar-top {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: center;
   align-items: center;
   width: 100%;
 }
@@ -1507,7 +1511,6 @@ onMounted(() => {
 
 /* 日期導航器樣式 */
 .date-navigator {
-  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -1575,29 +1578,6 @@ onMounted(() => {
   font-size: 1.15rem;
 }
 
-.btn-back-today {
-  grid-column: 3;
-  justify-self: end;
-  background: rgba(157, 78, 221, 0.12);
-  border: 1px solid rgba(157, 78, 221, 0.35);
-  color: #c8b6ff;
-  padding: 0.25rem 0.65rem;
-  border-radius: 20px;
-  font-family: var(--font-body);
-  font-size: 0.7rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  box-shadow: 0 0 5px rgba(157, 78, 221, 0.1);
-  white-space: nowrap;
-}
-
-.btn-back-today:hover {
-  background: var(--neon-purple);
-  border-color: var(--neon-purple);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(157, 78, 221, 0.5);
-}
 
 .date-text {
   font-family: var(--font-body);
