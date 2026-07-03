@@ -1,4 +1,3 @@
-import { getLocalDb, saveLocalDb } from '../utils/localDb'
 
 interface SyncQuestBody {
   player: 'A' | 'B';

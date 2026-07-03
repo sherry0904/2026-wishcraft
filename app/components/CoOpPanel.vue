@@ -5,6 +5,7 @@
       class="player-card game-card" 
       :class="{ 
         'active-glow': activePlayer === 'A',
+        'compact-card': activePlayer !== 'A',
         'is-offline-card': isOffline 
       }"
     >
@@ -13,7 +14,6 @@
         <div class="player-meta">
           <div class="player-title-group">
             <h3 class="player-name">{{ playerAName || '玩家 A' }}</h3>
-            <span class="player-subtitle">PARTNER A</span>
           </div>
           <span class="quest-count">今日進度: {{ playerAQuestsDone }} / {{ playerAQuestsTotal }}</span>
         </div>
@@ -106,6 +106,7 @@
       class="player-card game-card" 
       :class="{ 
         'active-glow': activePlayer === 'B',
+        'compact-card': activePlayer !== 'B',
         'is-offline-card': isOffline 
       }"
     >
@@ -114,7 +115,6 @@
         <div class="player-meta">
           <div class="player-title-group">
             <h3 class="player-name">{{ playerBName || '玩家 B' }}</h3>
-            <span class="player-subtitle">PARTNER B</span>
           </div>
           <span class="quest-count">今日進度: {{ playerBQuestsDone }} / {{ playerBQuestsTotal }}</span>
         </div>
@@ -241,6 +241,47 @@ function canUseSkip(player: 'A' | 'B'): boolean {
 .player-card {
   position: relative;
   border-top: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .player-card {
+    order: 3; /* 預設放下面 */
+  }
+  .player-card.active-glow {
+    order: 1; /* 啟動的放上面 */
+  }
+  .coop-status-center {
+    order: 2; /* Combo 放中間 */
+  }
+}
+
+.player-card.compact-card {
+  padding: 1rem;
+}
+.player-card.compact-card .avatar-container {
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+}
+.player-card.compact-card .player-name {
+  font-size: 0.9rem;
+}
+.player-card.compact-card .quest-count {
+  display: none; /* 精簡模式隱藏文字進度，只留進度條 */
+}
+.player-card.compact-card .mini-progress {
+  margin-bottom: 0.75rem;
+  height: 4px;
+}
+.player-card.compact-card .skip-pass-section {
+  padding: 0.4rem 0.6rem;
+}
+.player-card.compact-card .btn-skip {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
 }
 
 .player-card.active-glow {

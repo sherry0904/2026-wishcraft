@@ -1,4 +1,3 @@
-import { getLocalDb, saveLocalDb } from '../utils/localDb'
 
 interface SaveConfigBody {
   guildName: string;

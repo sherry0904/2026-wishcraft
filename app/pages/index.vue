@@ -16,6 +16,20 @@
       </div>
     </div>
 
+    <!-- 離線錯誤畫面 -->
+    <div v-else-if="isOffline" class="offline-error-screen">
+      <div class="error-container">
+        <svg class="error-icon float-animation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <h1 class="error-title">系統連線失敗</h1>
+        <p class="error-desc">無法與伺服器取得聯繫。為了避免您白白操作而心酸，系統已暫時鎖定。<br>請檢查網路連線或是後端系統設定。</p>
+        <button class="btn-retry" @click="retryConnection">重新連線</button>
+      </div>
+    </div>
+
     <!-- 情況 A：尚未選擇身分，顯示角色登入選取畫面 -->
     <div v-else-if="!activePlayer" class="character-select-screen">
       <div class="select-header">
@@ -897,8 +911,13 @@ function triggerConfetti() {
   })
 }
 
+// 追蹤同步中的請求數，避免樂觀更新被 fetchAllData 覆蓋導致畫面閃爍
+const pendingSyncCount = ref(0)
+
 // 9. 載入資料庫資料
 async function fetchAllData() {
+  if (pendingSyncCount.value > 0) return // 如果有正在同步的請求，先不更新資料以保護樂觀 UI
+
   try {
     const data = await $fetch<any>('/api/guild-data')
     quests.value = data.quests || []
@@ -925,6 +944,13 @@ async function fetchAllData() {
   } finally {
     isLoading.value = false
   }
+}
+
+function retryConnection() {
+  isLoading.value = true
+  isOffline.value = false
+  errorMessage.value = ''
+  fetchAllData()
 }
 
 // 10. 勾選與取消任務事件
@@ -966,6 +992,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   lastXpVal = totalXp.value
 
   // 2. 向後端同步
+  pendingSyncCount.value++
   try {
     const res = await $fetch<any>('/api/sync-quest', {
       method: 'POST',
@@ -982,14 +1009,18 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
       warningMessage.value = res.warning
       showToast(res.warning, 'warning')
     }
-    // 同步成功後重新載入資料，確保前後端一致
-    await fetchAllData()
   } catch (err: any) {
     // 同步失敗，回滾狀態
     logs.value = oldLogs
     lastXpVal = totalXp.value
     errorMessage.value = err.data?.message || '同步任務失敗，已回滾變更。'
     showToast(errorMessage.value, 'error')
+  } finally {
+    pendingSyncCount.value--
+    // 當所有請求都完成時，重新載入確保與後端完全一致
+    if (pendingSyncCount.value === 0) {
+      await fetchAllData()
+    }
   }
 }
 
@@ -2305,5 +2336,73 @@ onMounted(() => {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+/* 離線錯誤畫面 */
+.offline-error-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 10, 15, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-container {
+  background: rgba(255, 77, 109, 0.05);
+  border: 1px solid rgba(255, 77, 109, 0.2);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(255, 77, 109, 0.1);
+}
+
+.error-icon {
+  width: 60px;
+  height: 60px;
+  stroke: var(--neon-red);
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 0 10px rgba(255, 77, 109, 0.5));
+}
+
+.error-title {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  color: var(--neon-red);
+  margin-bottom: 1rem;
+  letter-spacing: 2px;
+}
+
+.error-desc {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.btn-retry {
+  background: linear-gradient(135deg, var(--neon-red), #c9184a);
+  color: #fff;
+  border: none;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-neon-red);
+  transition: var(--transition-smooth);
+}
+
+.btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(255, 77, 109, 0.6);
 }
 </style>

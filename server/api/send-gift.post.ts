@@ -1,4 +1,3 @@
-import { getLocalDb, saveLocalDb } from '../utils/localDb'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<any>(event)
