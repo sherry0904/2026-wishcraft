@@ -10,7 +10,7 @@
       }"
     >
       <div class="player-header">
-        <div class="avatar-container avatar-a">A</div>
+        <div class="avatar-container avatar-a">{{ (playerAName || 'A').charAt(0) }}</div>
         <div class="player-meta">
           <div class="player-title-group">
             <h3 class="player-name">{{ playerAName || '玩家 A' }}</h3>
@@ -111,7 +111,7 @@
       }"
     >
       <div class="player-header">
-        <div class="avatar-container avatar-b">B</div>
+        <div class="avatar-container avatar-b">{{ (playerBName || 'B').charAt(0) }}</div>
         <div class="player-meta">
           <div class="player-title-group">
             <h3 class="player-name">{{ playerBName || '玩家 B' }}</h3>
@@ -259,29 +259,49 @@ function canUseSkip(player: 'A' | 'B'): boolean {
 }
 
 .player-card.compact-card {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
+}
+.player-card.compact-card .player-header {
+  margin-bottom: 0.6rem;
+  gap: 0.75rem;
 }
 .player-card.compact-card .avatar-container {
-  width: 36px;
-  height: 36px;
-  font-size: 1.1rem;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
 }
 .player-card.compact-card .player-name {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+.player-card.compact-card .player-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
 }
 .player-card.compact-card .quest-count {
-  display: none; /* 精簡模式隱藏文字進度，只留進度條 */
+  display: inline-block;
+  font-size: 0.65rem;
+  margin-top: 0;
 }
 .player-card.compact-card .mini-progress {
-  margin-bottom: 0.75rem;
-  height: 4px;
+  margin-bottom: 0.6rem;
+  height: 3px;
 }
 .player-card.compact-card .skip-pass-section {
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.5rem;
+}
+.player-card.compact-card .quota-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+.player-card.compact-card .quota-label span:first-child {
+  font-size: 0.65rem;
 }
 .player-card.compact-card .btn-skip {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.65rem;
 }
 
 .player-card.active-glow {
