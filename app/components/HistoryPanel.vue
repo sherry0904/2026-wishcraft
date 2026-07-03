@@ -43,6 +43,10 @@
                 <span v-else-if="log.QuestId.startsWith('redeem_')" class="text-white">
                   兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
                 </span>
+                <!-- 情況 D：連擊加成 (虛擬日誌) -->
+                <span v-else-if="log.QuestId === 'combo_bonus'" class="text-neon-gold">
+                  ⚡ 日常連擊加成 ({{ log.comboMult }}x)
+                </span>
                 <!-- 情況 C：日常任務完成 -->
                 <span v-else class="text-white">
                   {{ getQuestName(log.QuestId) }}
@@ -62,7 +66,8 @@
             <!-- 下半部：時間與操作人 -->
             <div class="ledger-row-bottom">
               <span class="ledger-time-badge">
-                {{ formatLocalDate(log.Date) }} {{ formatLocalTime(log.Timestamp) }}
+                <span class="task-date-label">所屬日: {{ formatLocalDate(log.Date) }}</span>
+                <span class="exec-time-label"> (打卡: {{ formatLocalDate(log.Timestamp) }} {{ formatLocalTime(log.Timestamp) }})</span>
               </span>
               <span class="player-tag" :class="log.Player === 'A' ? 'tag-a' : 'tag-b'">
                 {{ log.Player === 'A' ? playerAName : playerBName }}
@@ -247,6 +252,7 @@ function formatLocalDate(dateVal: any): string {
   return localStr
 }
 
+
 function formatLocalTime(timestamp: string): string {
   if (!timestamp) return ''
   try {
@@ -273,7 +279,66 @@ function getRedemptionName(questId: string): string {
 }
 
 const sortedLogs = computed(() => {
-  return [...props.logs].sort((a, b) => {
+  const baseLogs = [...props.logs]
+  const virtualLogs: any[] = []
+
+  const logsByDateAndPlayer: Record<string, { A: number, B: number, timestampA: string, timestampB: string }> = {}
+  
+  baseLogs.forEach(log => {
+    if (log.QuestId.startsWith('redeem_')) return
+    const dateStr = parseToLocalDateStr(log.Date)
+    if (!logsByDateAndPlayer[dateStr]) {
+      logsByDateAndPlayer[dateStr] = { A: 0, B: 0, timestampA: '', timestampB: '' }
+    }
+    
+    if (log.Player === 'A') {
+      logsByDateAndPlayer[dateStr].A += Number(log.XP) || 0
+      if (!logsByDateAndPlayer[dateStr].timestampA || new Date(log.Timestamp).getTime() > new Date(logsByDateAndPlayer[dateStr].timestampA).getTime()) {
+        logsByDateAndPlayer[dateStr].timestampA = log.Timestamp
+      }
+    } else if (log.Player === 'B') {
+      logsByDateAndPlayer[dateStr].B += Number(log.XP) || 0
+      if (!logsByDateAndPlayer[dateStr].timestampB || new Date(log.Timestamp).getTime() > new Date(logsByDateAndPlayer[dateStr].timestampB).getTime()) {
+        logsByDateAndPlayer[dateStr].timestampB = log.Timestamp
+      }
+    }
+  })
+
+  Object.entries(logsByDateAndPlayer).forEach(([dateStr, data]) => {
+    const comboCount = getActiveCombosForDate(dateStr).length
+    const mult = getDayMultiplier(comboCount)
+    
+    if (mult > 1) {
+      if (data.A > 0) {
+        const bonusA = Math.round(data.A * mult) - data.A
+        if (bonusA > 0) {
+          virtualLogs.push({
+            QuestId: 'combo_bonus',
+            XP: bonusA,
+            Player: 'A',
+            Date: dateStr,
+            Timestamp: new Date(new Date(data.timestampA).getTime() + 1000).toISOString(),
+            comboMult: mult
+          })
+        }
+      }
+      if (data.B > 0) {
+        const bonusB = Math.round(data.B * mult) - data.B
+        if (bonusB > 0) {
+          virtualLogs.push({
+            QuestId: 'combo_bonus',
+            XP: bonusB,
+            Player: 'B',
+            Date: dateStr,
+            Timestamp: new Date(new Date(data.timestampB).getTime() + 1000).toISOString(),
+            comboMult: mult
+          })
+        }
+      }
+    }
+  })
+
+  return [...baseLogs, ...virtualLogs].sort((a, b) => {
     return new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime()
   })
 })
@@ -493,7 +558,16 @@ const monthlyStats = computed(() => {
 
 .ledger-time-badge {
   color: var(--text-muted);
-  opacity: 0.75;
+}
+
+.task-date-label {
+  color: #caf0f8;
+  font-weight: 700;
+}
+
+.exec-time-label {
+  font-size: 0.85em;
+  opacity: 0.6;
 }
 
 .player-tag {
