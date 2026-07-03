@@ -25,7 +25,7 @@
           <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
         <h1 class="error-title">系統連線失敗</h1>
-        <p class="error-desc">無法與伺服器取得聯繫。為了避免您白白操作而心酸，系統已暫時鎖定。<br>請檢查網路連線或是後端系統設定。</p>
+        <p class="error-desc">無法與伺服器取得聯繫。為確保您的任務進度能正確保存，系統已暫停操作。<br>請檢查網路連線或是後端系統設定。</p>
         <button class="btn-retry" @click="retryConnection">重新連線</button>
       </div>
     </div>
