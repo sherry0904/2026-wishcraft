@@ -54,22 +54,50 @@
 
     <!-- 中間的 Combo 與狀態連線 -->
     <div class="coop-status-center">
-      <div 
-        class="combo-badge" 
-        :class="{ 'combo-active': isComboActive }"
-      >
-        <div class="combo-icon">
-          <svg class="combo-icon-svg float-animation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
-          </svg>
-        </div>
-        <div class="combo-text">
-          <div class="combo-title">{{ comboCategory || '飲水' }} COMBO</div>
-          <div class="combo-mult">{{ isComboActive ? '1.2x 經驗加成' : '未啟動' }}</div>
-        </div>
-      </div>
+      <!-- 連線裝飾 -->
       <div class="coop-connector">
         <div class="connector-line" :class="{ 'line-active': isComboActive }"></div>
+      </div>
+
+      <div class="combo-badges-list" :style="{ justifyContent: allComboCats.length > 1 ? 'flex-start' : 'center' }">
+        <!-- 如果無 active combos，顯示所有類別為未啟動 -->
+        <template v-if="!activeCombos || activeCombos.length === 0">
+          <div 
+            v-for="cat in allComboCats" 
+            :key="cat"
+            class="combo-badge combo-badge-item"
+          >
+            <div class="combo-icon">
+              <svg class="combo-icon-svg float-animation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+              </svg>
+            </div>
+            <div class="combo-text">
+              <div class="combo-title">{{ cat }} COMBO</div>
+              <div class="combo-mult">未啟動</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 如果有啟動的 combo，顯示所有類別（啟動的亮起，未啟動的灰暗） -->
+        <template v-else>
+          <div 
+            v-for="cat in allComboCats" 
+            :key="cat"
+            class="combo-badge combo-badge-item"
+            :class="{ 'combo-active': activeCombos?.includes(cat) }"
+          >
+            <div class="combo-icon">
+              <svg class="combo-icon-svg float-animation" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+              </svg>
+            </div>
+            <div class="combo-text">
+              <div class="combo-title">{{ cat }} COMBO</div>
+              <div class="combo-mult">{{ activeCombos?.includes(cat) ? '1.2x 經驗加成' : '未啟動' }}</div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -147,6 +175,8 @@ const props = defineProps<{
   // Combo 與離線狀態
   isComboActive: boolean
   comboCategory?: string
+  allComboCategories?: string[]
+  activeCombos?: string[]
   isOffline: boolean
   isReadOnly?: boolean
 }>()
@@ -154,6 +184,14 @@ const props = defineProps<{
 defineEmits<{
   (e: 'useSkip', player: 'A' | 'B'): void
 }>()
+
+// 所有 combo 類別（來自 prop 或 fallback）
+const allComboCats = computed(() => {
+  if (props.allComboCategories && props.allComboCategories.length > 0) {
+    return props.allComboCategories
+  }
+  return [props.comboCategory || '飲水']
+})
 
 const playerAProgressPercentage = computed(() => {
   if (props.playerAQuestsTotal === 0) return 0
@@ -385,6 +423,28 @@ function canUseSkip(player: 'A' | 'B'): boolean {
   justify-content: center;
   position: relative;
   min-width: 140px;
+}
+
+.combo-badges-list {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  padding: 8px 4px;
+  z-index: 2;
+}
+
+.combo-badges-list::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+
+.combo-badge-item {
+  flex-shrink: 0;
 }
 
 .combo-badge {

@@ -205,12 +205,14 @@ const partnerQuests = computed(() => {
 
 // 轉換 Category 成樣式 key
 function getCategoryKey(category: string): string {
-  if (category === '飲水') return 'water'
-  if (category === '進食') return 'food'
-  if (category === '運動') return 'move'
-  if (category === '精神') return 'mind'
-  if (category === '家務') return 'chore'
-  if (category === '學習') return 'study'
+  if (!category) return 'default'
+  const trimmed = category.trim()
+  if (trimmed === '飲水' || trimmed === '補水' || trimmed === '喝水') return 'water'
+  if (trimmed === '進食' || trimmed === '飲食') return 'food'
+  if (trimmed === '運動' || trimmed === '活動') return 'move'
+  if (trimmed === '精神' || trimmed === '休息' || trimmed === '關係' || trimmed === '心靈') return 'mind'
+  if (trimmed === '家務' || trimmed === '整理' || trimmed === '空間') return 'chore'
+  if (trimmed === '學習' || trimmed === '閱讀') return 'study'
   return 'default'
 }
 

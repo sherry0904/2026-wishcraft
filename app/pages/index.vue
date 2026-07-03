@@ -125,7 +125,7 @@
             <div class="today-points-info">
               <span class="xp-pill pill-a">{{ playerAName }}日得點: +{{ xpEarnedTodayA }} XP</span>
               <span class="xp-pill pill-b">{{ playerBName }}日得點: +{{ xpEarnedTodayB }} XP</span>
-              <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO 1.2x</span>
+              <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO {{ getDayMultiplier(activeCombosToday.length) }}x</span>
             </div>
           </div>
         </div>
@@ -145,6 +145,8 @@
           :player-b-has-skipped="hasSkippedB"
           :is-combo-active="isComboActiveToday"
           :combo-category="comboCategory"
+          :all-combo-categories="comboCategories"
+          :active-combos="activeCombosToday"
           :is-offline="isOffline"
           :is-read-only="isReadOnly"
           @use-skip="onUseSkip"
@@ -191,6 +193,7 @@
           :shop-items="shopItems"
           :player-a-name="playerAName"
           :player-b-name="playerBName"
+          :combo-categories="comboCategories"
           mode="ledger"
         />
       </div>
@@ -513,7 +516,22 @@ const lastSavedPlayer = ref<'A' | 'B' | null>(null)
 const guildName = computed(() => configData.value.GuildName || '雙人夢想解鎖板')
 const playerAName = computed(() => configData.value.PlayerAName || '萱')
 const playerBName = computed(() => configData.value.PlayerBName || '至')
-const comboCategory = computed(() => configData.value.ComboCategory || '飲水')
+const comboCategories = computed(() => {
+  const raw = configData.value.ComboCategory
+  if (!raw || typeof raw !== 'string') return ['飲水']
+  
+  return raw
+    .split(/[，,]/)
+    .map(c => {
+      let cleaned = c.replace(/\s*[\uff08\uff09\(\)].*$/, '').trim()
+      if (cleaned === '飲水' && quests.value.some(q => q.Category === '補水')) {
+        return '補水'
+      }
+      return cleaned
+    })
+    .filter(Boolean)
+})
+const comboCategory = computed(() => comboCategories.value[0] || '飲水')
 const aiPrompt = computed(() => configData.value.AIPrompt || '')
 const weeklyQuota = computed(() => Number(configData.value.WeeklyQuota) || 2)
 
@@ -633,20 +651,44 @@ function getSkipsUsedThisWeek(player: 'A' | 'B'): number {
 const playerASkipsUsed = computed(() => getSkipsUsedThisWeek('A'))
 const playerBSkipsUsed = computed(() => getSkipsUsedThisWeek('B'))
 
-// 5. 判斷今日 Combo 是否啟動 (雙方當天都完成「飲水」類別任務，或有人使用請假券亦可維持)
-const isComboActiveToday = computed(() => {
-  const aDoneCombo = completedQuestsAToday.value.some(id => {
-    const q = quests.value.find(quest => quest.Id === id)
-    return q?.Category === comboCategory.value
-  }) || hasSkippedA.value
+// 5. 判斷特定日期各類別 Combo 是否啟動
+function getActiveCombosForDate(dateStr: string): string[] {
+  const dayLogs = logs.value.filter(l => parseToLocalDateStr(l.Date) === dateStr)
+  const hasSkippedA = dayLogs.some(l => l.Player === 'A' && l.QuestId === 'skip')
+  const hasSkippedB = dayLogs.some(l => l.Player === 'B' && l.QuestId === 'skip')
 
-  const bDoneCombo = completedQuestsBToday.value.some(id => {
-    const q = quests.value.find(quest => quest.Id === id)
-    return q?.Category === comboCategory.value
-  }) || hasSkippedB.value
+  const completedCatsA = new Set<string>()
+  if (hasSkippedA) {
+    comboCategories.value.forEach(cat => completedCatsA.add(cat))
+  } else {
+    dayLogs.forEach(l => {
+      if (l.Player === 'A' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')) {
+        const q = quests.value.find(quest => quest.Id === l.QuestId)
+        if (q?.Category) completedCatsA.add(q.Category.trim())
+      }
+    })
+  }
 
-  return aDoneCombo && bDoneCombo
+  const completedCatsB = new Set<string>()
+  if (hasSkippedB) {
+    comboCategories.value.forEach(cat => completedCatsB.add(cat))
+  } else {
+    dayLogs.forEach(l => {
+      if (l.Player === 'B' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')) {
+        const q = quests.value.find(quest => quest.Id === l.QuestId)
+        if (q?.Category) completedCatsB.add(q.Category.trim())
+      }
+    })
+  }
+
+  return comboCategories.value.filter(cat => completedCatsA.has(cat) && completedCatsB.has(cat))
+}
+
+const activeCombosToday = computed(() => {
+  return getActiveCombosForDate(selectedDateStr.value)
 })
+
+const isComboActiveToday = computed(() => activeCombosToday.value.length > 0)
 
 const formattedSelectedDate = computed(() => {
   const d = new Date()
@@ -659,16 +701,19 @@ const formattedSelectedDate = computed(() => {
   return `${year}/${month}/${date} (${dayName})`
 })
 
+const getDayMultiplier = (comboCount: number): number => {
+  if (comboCount === 0) return 1
+  return Math.round(Math.pow(1.2, comboCount) * 100) / 100
+}
+
 const xpEarnedTodayA = computed(() => {
   let sum = 0
   completedQuestsAToday.value.forEach(id => {
     const q = quests.value.find(quest => quest.Id === id)
     if (q) sum += q.XP
   })
-  if (isComboActiveToday.value) {
-    sum = Math.round(sum * 1.2)
-  }
-  return sum
+  const mult = getDayMultiplier(activeCombosToday.value.length)
+  return Math.round(sum * mult)
 })
 
 const xpEarnedTodayB = computed(() => {
@@ -677,10 +722,8 @@ const xpEarnedTodayB = computed(() => {
     const q = quests.value.find(quest => quest.Id === id)
     if (q) sum += q.XP
   })
-  if (isComboActiveToday.value) {
-    sum = Math.round(sum * 1.2)
-  }
-  return sum
+  const mult = getDayMultiplier(activeCombosToday.value.length)
+  return Math.round(sum * mult)
 })
 
 // 6. 動態加總所有歷史完成任務獲得的累計 XP (只計正值，不隨兌換扣除，用來解鎖里程碑與升級)
@@ -699,25 +742,14 @@ const totalXp = computed(() => {
   let sum = 0
   Object.entries(logsByDate).forEach(([date, dayLogs]) => {
     let dayXp = 0
-    let hasComboA = false
-    let hasComboB = false
+    const activeCombos = getActiveCombosForDate(date)
+    const mult = getDayMultiplier(activeCombos.length)
 
     dayLogs.forEach(log => {
-      const q = quests.value.find(quest => quest.Id === log.QuestId)
-      const isComboTarget = q ? q.Category === comboCategory.value : (log.QuestId.includes('water') || log.QuestId.includes(comboCategory.value.toLowerCase()))
-      const isSkip = log.IsSkipPass || log.QuestId === 'skip'
-
-      if (log.Player === 'A' && (isComboTarget || isSkip)) hasComboA = true
-      if (log.Player === 'B' && (isComboTarget || isSkip)) hasComboB = true
-
       dayXp += Number(log.XP) || 0
     })
 
-    if (hasComboA && hasComboB) {
-      dayXp = dayXp * 1.2
-    }
-
-    sum += dayXp
+    sum += dayXp * mult
   })
 
   return Math.round(sum)
@@ -741,17 +773,10 @@ const playerStats = computed(() => {
   Object.entries(logsByDate).forEach(([date, dayLogs]) => {
     let aDayXp = 0
     let bDayXp = 0
-    let hasComboA = false
-    let hasComboB = false
+    const activeCombos = getActiveCombosForDate(date)
+    const mult = getDayMultiplier(activeCombos.length)
 
     dayLogs.forEach(log => {
-      const q = quests.value.find(quest => quest.Id === log.QuestId)
-      const isComboTarget = q ? q.Category === comboCategory.value : (log.QuestId.includes('water') || log.QuestId.includes(comboCategory.value.toLowerCase()))
-      const isSkip = log.IsSkipPass || log.QuestId === 'skip'
-
-      if (log.Player === 'A' && (isComboTarget || isSkip)) hasComboA = true
-      if (log.Player === 'B' && (isComboTarget || isSkip)) hasComboB = true
-
       if (log.Player === 'A') {
         aDayXp += Number(log.XP) || 0
       } else if (log.Player === 'B') {
@@ -759,13 +784,8 @@ const playerStats = computed(() => {
       }
     })
 
-    if (hasComboA && hasComboB) {
-      aDayXp = aDayXp * 1.2
-      bDayXp = bDayXp * 1.2
-    }
-
-    aEarned += aDayXp
-    bEarned += bDayXp
+    aEarned += aDayXp * mult
+    bEarned += bDayXp * mult
   })
 
   // 累加所有的兌換扣點數（通常為負數）
@@ -931,13 +951,13 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
     logs.value.push(tempLog)
     showToast(`成功完成【${questName}】！獲得 +${payload.xp} XP ⭐`, 'success')
   } else {
-    const idx = logs.value.findIndex(l => 
-      parseToLocalDateStr(l.Date) === selectedDateStr.value && 
-      l.Player === activePlayer.value && 
-      l.QuestId === payload.questId && 
-      !l.IsSkipPass
+    // 移除所有符合的紀錄，以防有重複的髒資料
+    logs.value = logs.value.filter(l => 
+      !(parseToLocalDateStr(l.Date) === selectedDateStr.value && 
+        l.Player === activePlayer.value && 
+        l.QuestId === payload.questId && 
+        !l.IsSkipPass)
     )
-    if (idx !== -1) logs.value.splice(idx, 1)
     showToast(`已取消【${questName}】的打卡 ↩️`, 'info')
   }
 
@@ -962,6 +982,8 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
       warningMessage.value = res.warning
       showToast(res.warning, 'warning')
     }
+    // 同步成功後重新載入資料，確保前後端一致
+    await fetchAllData()
   } catch (err: any) {
     // 同步失敗，回滾狀態
     logs.value = oldLogs
@@ -1088,9 +1110,7 @@ const past7DaysStats = computed(() => {
     const pctA = totalA > 0 ? (doneA / totalA) * 100 : 0
     const pctB = totalB > 0 ? (doneB / totalB) * 100 : 0
     
-    const comboCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === comboCategory.value) || hasSkippedA
-    const comboCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && quests.value.find(q => q.Id === l.QuestId)?.Category === comboCategory.value) || hasSkippedB
-    const combo = comboCompletedA && comboCompletedB
+    const combo = getActiveCombosForDate(dateStr).length > 0
     
     stats.push({
       date: dateStr,

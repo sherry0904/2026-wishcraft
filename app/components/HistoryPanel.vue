@@ -85,11 +85,11 @@
             v-for="stat in past7DaysStats" 
             :key="stat.date" 
             class="day-stat-card"
-            :class="{ 'combo-bg': stat.combo }"
+            :class="{ 'combo-bg': stat.comboCount > 0 }"
           >
             <div class="stat-date-info">
               <span class="stat-day">{{ formatLocalDate(stat.date) }}</span>
-              <span v-if="stat.combo" class="stat-combo-badge float-animation">⚡ COMBO 1.2x</span>
+              <span v-if="stat.comboCount > 0" class="stat-combo-badge float-animation">⚡ COMBO {{ getDayMultiplier(stat.comboCount) }}x</span>
             </div>
             <div class="players-progress-row">
               <div class="player-progress-col">
@@ -162,6 +162,7 @@ const props = defineProps<{
   playerAName: string
   playerBName: string
   mode?: 'ledger' | 'reports'
+  comboCategories?: string[]
 }>()
 
 const tabs = computed(() => {
@@ -197,6 +198,44 @@ function parseToLocalDateStr(dateVal: any): string {
     return `${year}-${month}-${day}`
   }
   return dateStr.substring(0, 10)
+}
+
+function getActiveCombosForDate(dateStr: string): string[] {
+  const categories = props.comboCategories || ['飲水']
+  const dayLogs = props.logs.filter(l => parseToLocalDateStr(l.Date) === dateStr)
+  const hasSkippedA = dayLogs.some(l => l.Player === 'A' && l.QuestId === 'skip')
+  const hasSkippedB = dayLogs.some(l => l.Player === 'B' && l.QuestId === 'skip')
+
+  const completedCatsA = new Set<string>()
+  if (hasSkippedA) {
+    categories.forEach(cat => completedCatsA.add(cat))
+  } else {
+    dayLogs.forEach(l => {
+      if (l.Player === 'A' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')) {
+        const q = props.quests.find(quest => quest.Id === l.QuestId)
+        if (q?.Category) completedCatsA.add(q.Category.trim())
+      }
+    })
+  }
+
+  const completedCatsB = new Set<string>()
+  if (hasSkippedB) {
+    categories.forEach(cat => completedCatsB.add(cat))
+  } else {
+    dayLogs.forEach(l => {
+      if (l.Player === 'B' && !l.IsSkipPass && !l.QuestId.startsWith('redeem_')) {
+        const q = props.quests.find(quest => quest.Id === l.QuestId)
+        if (q?.Category) completedCatsB.add(q.Category.trim())
+      }
+    })
+  }
+
+  return categories.filter(cat => completedCatsA.has(cat) && completedCatsB.has(cat))
+}
+
+function getDayMultiplier(comboCount: number): number {
+  if (comboCount === 0) return 1
+  return Math.round(Math.pow(1.2, comboCount) * 100) / 100
 }
 
 function formatLocalDate(dateVal: any): string {
@@ -268,9 +307,8 @@ const past7DaysStats = computed(() => {
     const pctA = totalA > 0 ? (doneA / totalA) * 100 : 0
     const pctB = totalB > 0 ? (doneB / totalB) * 100 : 0
     
-    const waterCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && props.quests.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedA
-    const waterCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && props.quests.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedB
-    const combo = waterCompletedA && waterCompletedB
+    const activeCombos = getActiveCombosForDate(dateStr)
+    const comboCount = activeCombos.length
     
     stats.push({
       date: dateStr,
@@ -280,7 +318,7 @@ const past7DaysStats = computed(() => {
       doneB,
       totalB,
       pctB,
-      combo
+      comboCount
     })
   }
   return stats
@@ -312,17 +350,15 @@ const monthlyStats = computed(() => {
     const dayLogs = logsByDate[dateStr]
     const mStat = map[monthStr]
     
-    const hasSkippedA = dayLogs.some(l => l.Player === 'A' && l.QuestId === 'skip')
-    const hasSkippedB = dayLogs.some(l => l.Player === 'B' && l.QuestId === 'skip')
-    const waterCompletedA = dayLogs.some(l => l.Player === 'A' && !l.IsSkipPass && props.quests.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedA
-    const waterCompletedB = dayLogs.some(l => l.Player === 'B' && !l.IsSkipPass && props.quests.find(q => q.Id === l.QuestId)?.Category === '飲水') || hasSkippedB
-    const hasCombo = waterCompletedA && waterCompletedB
+    const hasCombo = getActiveCombosForDate(dateStr).length > 0
     
     if (hasCombo) {
       mStat.comboDays += 1
     }
     
     let dayXp = 0
+    const activeCombos = getActiveCombosForDate(dateStr)
+    const mult = getDayMultiplier(activeCombos.length)
     dayLogs.forEach(l => {
       if (l.QuestId === 'skip') {
         mStat.totalSkips += 1
@@ -335,11 +371,7 @@ const monthlyStats = computed(() => {
       }
     })
     
-    if (hasCombo) {
-      mStat.totalXP += Math.round(dayXp * 1.2)
-    } else {
-      mStat.totalXP += dayXp
-    }
+    mStat.totalXP += Math.round(dayXp * mult)
   })
   
   return Object.values(map).sort((a, b) => b.month.localeCompare(a.month))
