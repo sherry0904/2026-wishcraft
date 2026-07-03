@@ -920,6 +920,11 @@ async function fetchAllData() {
 
   try {
     const data = await $fetch<any>('/api/guild-data')
+    
+    // 如果在等待 API 回傳的期間，使用者點擊了任務（pendingSyncCount > 0），
+    // 就必須放棄這次取得的舊資料，以免覆蓋樂觀更新的結果。
+    if (pendingSyncCount.value > 0) return
+    
     quests.value = data.quests || []
     milestones.value = data.milestones || []
     shopItems.value = data.shopItems || []
