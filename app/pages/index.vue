@@ -40,14 +40,14 @@
       <div class="characters-grid">
         <!-- 角色 A：萱 -->
         <div class="char-card char-card-a" @click="loginPlayer('A')">
-          <div class="char-avatar avatar-large-a">萱</div>
+          <div class="char-avatar avatar-large-a">{{ (playerAName || 'A').charAt(0) }}</div>
           <h2 class="char-name">{{ playerAName }}</h2>
           <span class="char-role">ADVENTURER A</span>
         </div>
 
         <!-- 角色 B：至 -->
         <div class="char-card char-card-b" @click="loginPlayer('B')">
-          <div class="char-avatar avatar-large-b">至</div>
+          <div class="char-avatar avatar-large-b">{{ (playerBName || 'B').charAt(0) }}</div>
           <h2 class="char-name">{{ playerBName }}</h2>
           <span class="char-role">ADVENTURER B</span>
         </div>
@@ -96,7 +96,7 @@
       <!-- 1. 任務分頁 -->
       <div v-if="currentNavTab === 'quests'" class="tab-view-content">
         <!-- 日期導航切換與雙人已獲得點數看板 -->
-        <div class="today-summary-bar game-card">
+        <div class="today-summary-bar">
           <div class="summary-bar-top">
             <div class="date-navigator">
               <button 
@@ -123,8 +123,6 @@
                 ▶
               </button>
             </div>
-            
-            <!-- 回今天按鈕，靠最右側獨立顯示，簡潔不搶戲 -->
             <button 
               v-if="!isSelectedDateToday"
               class="btn-back-today"
@@ -136,10 +134,19 @@
           </div>
 
           <div class="summary-bar-bottom">
-            <div class="today-points-info">
-              <span class="xp-pill pill-a">{{ playerAName }}日得點: +{{ xpEarnedTodayA }} XP</span>
-              <span class="xp-pill pill-b">{{ playerBName }}日得點: +{{ xpEarnedTodayB }} XP</span>
-              <span v-if="isComboActiveToday" class="combo-bonus-glow">⚡ COMBO {{ getDayMultiplier(activeCombosToday.length) }}x</span>
+            <div class="daily-points-display">
+              <span class="daily-points-label">日得點</span>
+              <div class="daily-points-values">
+                <div class="point-item">
+                  <span class="point-avatar avatar-small-a">{{ (playerAName || 'A').charAt(0) }}</span>
+                  <span class="point-num text-neon-purple">+{{ xpEarnedTodayA }}</span>
+                </div>
+                <div class="point-item">
+                  <span class="point-avatar avatar-small-b">{{ (playerBName || 'B').charAt(0) }}</span>
+                  <span class="point-num text-neon-blue">+{{ xpEarnedTodayB }}</span>
+                </div>
+              </div>
+              <span v-if="isComboActiveToday" class="mini-combo-badge">⚡ COMBO {{ getDayMultiplier(activeCombosToday.length) }}x</span>
             </div>
           </div>
         </div>
@@ -915,7 +922,7 @@ function triggerConfetti() {
 const pendingSyncCount = ref(0)
 
 // 9. 載入資料庫資料
-async function fetchAllData() {
+async function fetchAllData(isAutoRefresh = false) {
   if (pendingSyncCount.value > 0) return // 如果有正在同步的請求，先不更新資料以保護樂觀 UI
 
   try {
@@ -944,8 +951,12 @@ async function fetchAllData() {
     lastXpVal = totalXp.value
 
   } catch (err: any) {
-    errorMessage.value = '無法連接伺服器 API，請確認後端是否正常運作。'
-    isOffline.value = true
+    if (!isAutoRefresh) {
+      errorMessage.value = '無法連接伺服器 API，請確認後端是否正常運作。'
+      isOffline.value = true
+    } else {
+      console.warn('Auto refresh failed, ignoring to prevent locking UI.', err)
+    }
   } finally {
     isLoading.value = false
   }
@@ -1339,7 +1350,7 @@ onMounted(() => {
   
   fetchAllData()
   // 每 30 秒自動輪詢最新資料，保持雙人同步！
-  setInterval(fetchAllData, 30000)
+  setInterval(() => fetchAllData(true), 30000)
 })
 </script>
 
@@ -1468,26 +1479,22 @@ onMounted(() => {
 
 /* 今日得點與日期狀態列 */
 .today-summary-bar {
+  margin-bottom: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.85rem 1.25rem;
-  margin-bottom: 1.25rem;
-  background: rgba(20, 24, 35, 0.5);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  gap: 2.5rem; /* 您可以修改這裡的數值，例如調成 3rem 會更寬鬆 */
 }
 
 .summary-bar-top {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   width: 100%;
 }
 
 .summary-bar-bottom {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   width: 100%;
 }
@@ -1500,6 +1507,7 @@ onMounted(() => {
 
 /* 日期導航器樣式 */
 .date-navigator {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -1568,6 +1576,8 @@ onMounted(() => {
 }
 
 .btn-back-today {
+  grid-column: 3;
+  justify-self: end;
   background: rgba(157, 78, 221, 0.12);
   border: 1px solid rgba(157, 78, 221, 0.35);
   color: #c8b6ff;
@@ -1591,68 +1601,81 @@ onMounted(() => {
 
 .date-text {
   font-family: var(--font-body);
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 900;
   color: #fff;
+  letter-spacing: 0.5px;
 }
 
-.today-points-info {
+.daily-points-display {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: center;
+  gap: 1.25rem;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
-.xp-pill {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
+.daily-points-label {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 1px;
   white-space: nowrap;
 }
 
-.xp-pill.pill-a {
-  background: rgba(157, 78, 221, 0.12);
-  border: 1px solid rgba(157, 78, 221, 0.25);
-  color: #c8b6ff;
+.daily-points-values {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-.xp-pill.pill-b {
-  background: rgba(0, 180, 216, 0.12);
-  border: 1px solid rgba(0, 180, 216, 0.25);
-  color: #caf0f8;
+.point-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.combo-bonus-glow {
+.point-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   font-size: 0.7rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.avatar-small-a {
+  background: linear-gradient(135deg, var(--neon-purple), #5a189a);
+}
+
+.avatar-small-b {
+  background: linear-gradient(135deg, var(--neon-blue), #0077b6);
+}
+
+.point-num {
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.mini-combo-badge {
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--neon-gold);
-  background: rgba(255, 183, 3, 0.12);
-  border: 1px solid rgba(255, 183, 3, 0.3);
-  padding: 0.25rem 0.5rem;
+  background: rgba(255, 183, 3, 0.1);
+  border: 1px solid rgba(255, 183, 3, 0.2);
+  padding: 0.2rem 0.5rem;
   border-radius: 6px;
-  animation: gold-pulse 2s infinite ease-in-out;
-}
-
-@keyframes gold-pulse {
-  0% { box-shadow: 0 0 5px rgba(255, 183, 3, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(255, 183, 3, 0.5); }
-  100% { box-shadow: 0 0 5px rgba(255, 183, 3, 0.2); }
 }
 
 @media (max-width: 768px) {
   .today-summary-bar {
-    padding: 0.75rem 1rem;
-    gap: 0.5rem;
-  }
-  .summary-bar-top {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .today-points-info {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 1.5rem; /* 在手機版稍微收斂一點，但還是保持寬鬆 */
   }
 }
 
