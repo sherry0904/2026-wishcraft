@@ -566,6 +566,8 @@ const monthlyStats = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 65px;
+  flex-shrink: 0;
 }
 
 .stat-day {
@@ -573,6 +575,8 @@ const monthlyStats = computed(() => {
   font-size: 0.9rem;
   font-weight: bold;
   color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
 }
 
 .stat-combo-badge {
@@ -589,16 +593,15 @@ const monthlyStats = computed(() => {
 .players-progress-row {
   display: flex;
   gap: 1.5rem;
-  flex: 1;
+  flex: 0 0 320px; /* 固定寬度，不受左側日期影響 */
   justify-content: flex-end;
-  max-width: 500px;
 }
 
 @media (max-width: 576px) {
   .players-progress-row {
-    width: 100%;
+    flex: 1 1 100%;
+    margin-top: 0.5rem;
     justify-content: space-between;
-    max-width: none;
   }
 }
 
