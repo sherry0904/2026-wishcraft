@@ -34,7 +34,7 @@
     <div v-else-if="!activePlayer" class="character-select-screen">
       <div class="select-header">
         <h1 class="select-logo">WISHCRAFT</h1>
-        <p class="select-subtitle">SELECT YOUR ADVENTURER / 選擇您的身分</p>
+        <p class="select-subtitle">選擇您的身分</p>
       </div>
 
       <div class="characters-grid">
@@ -1740,7 +1740,7 @@ onMounted(() => {
 }
 
 .select-subtitle {
-  font-size: 0.8rem;
+  font-size: 1.1rem;
   color: var(--text-muted);
   letter-spacing: 2px;
   margin-top: 0.6rem;
