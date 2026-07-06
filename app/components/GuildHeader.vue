@@ -66,11 +66,6 @@
         </div>
       </div>
 
-      <!-- 默契共鳴橫幅：僅當日雙方都有打卡時顯示 -->
-      <div v-if="isSynergyActive" class="synergy-banner">
-        <span class="synergy-banner-icon">⚡</span>
-        <span class="synergy-banner-text">今日默契共鳴達成！雙方均已完成任務</span>
-      </div>
 
       <!-- 經驗值進度條 -->
       <div class="level-progress-container">

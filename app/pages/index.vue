@@ -858,26 +858,8 @@ const currentBalance = computed(() => {
   return 0
 })
 
-// 偵測今天是否雙方都有打卡完成 (啟動默契共鳴)
-const isSynergyActive = computed(() => {
-  const todayStr = getTodayDateStr()
-  
-  const aDone = logs.value.some(l => 
-    l.Player === 'A' && 
-    parseToLocalDateStr(l.Date) === todayStr && 
-    !l.IsSkipPass && 
-    !l.QuestId.startsWith('redeem_')
-  )
-  
-  const bDone = logs.value.some(l => 
-    l.Player === 'B' && 
-    parseToLocalDateStr(l.Date) === todayStr && 
-    !l.IsSkipPass && 
-    !l.QuestId.startsWith('redeem_')
-  )
-  
-  return aDone && bDone
-})
+// 偵測今天是否有 combo 觸發 (默契共鳴 = 至少一個類別 combo 達成)
+const isSynergyActive = computed(() => isComboActiveToday.value)
 
 
 // 連勝天數計算 (包含使用請假券的天數)
