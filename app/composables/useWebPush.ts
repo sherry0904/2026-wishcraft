@@ -77,8 +77,19 @@ export const useWebPush = () => {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.getSubscription()
       if (subscription) {
+        const endpoint = subscription.endpoint
         await subscription.unsubscribe()
         isSubscribed.value = false
+        // 同步通知後端從 Google Sheets 刪除此訂閱
+        try {
+          await $fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            body: { endpoint }
+          })
+        } catch (e) {
+          // 後端刪除失敗不影響前端狀態，下次 Cron 發送時收到 410 會自動清理
+          console.warn('Failed to remove subscription from backend:', e)
+        }
         return true
       }
       return false
