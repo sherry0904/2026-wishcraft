@@ -919,12 +919,17 @@ function triggerConfetti() {
 // 追蹤同步中的請求數，避免樂觀更新被 fetchAllData 覆蓋導致畫面閃爍
 const pendingSyncCount = ref(0)
 
+// 防止 fetchAllData 重複並發（setInterval + 手動呼叫可能同時觸發）
+let isFetchingData = false
+
 // 序列化 GAS 請求的 Promise chain，防止並發寫入 Sheets 造成 500 衝突
 let syncChain: Promise<void> = Promise.resolve()
 
 // 9. 載入資料庫資料
 async function fetchAllData(isAutoRefresh = false) {
   if (pendingSyncCount.value > 0) return // 如果有正在同步的請求，先不更新資料以保護樂觀 UI
+  if (isFetchingData) return // 防止並發：已有一個 fetchAllData 在飛行中，跳過
+  isFetchingData = true
 
   try {
     const data = await $fetch<any>('/api/guild-data')
@@ -969,6 +974,7 @@ async function fetchAllData(isAutoRefresh = false) {
     }
   } finally {
     isLoading.value = false
+    isFetchingData = false
   }
 }
 
@@ -1052,9 +1058,16 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
       // 所有請求完成後才做一次 fetchAllData，以伺服器為最終依據
       // （pendingSyncCount 歸零代表 queue 已清空）
       if (pendingSyncCount.value === 0) {
-        await fetchAllData()
+        try {
+          await fetchAllData()
+        } catch {
+          // fetchAllData 失敗不影響 chain，靜默處理
+        }
       }
     }
+  }).catch(() => {
+    // 防止 chain rejection 向後傳播，導致後續排隊的請求被全部丟棄
+    // 下一個 .then() 仍會正常執行
   })
 }
 
