@@ -15,7 +15,8 @@ export default defineEventHandler(async (event) => {
     const response = await $fetch<any>(sheetUrl, {
       method: 'POST',
       body: {
-        action: 'clearAllLogs'
+        action: 'clearAllLogs',
+        secretToken: config.gasSecretToken
       }
     })
     return response

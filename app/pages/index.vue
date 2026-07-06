@@ -332,6 +332,8 @@
 
       <!-- 4. 設定分頁 -->
       <div v-if="currentNavTab === 'settings'" class="tab-view-content">
+        <PushNotificationToggle />
+        
         <AIConfigPanel 
           :guild-name="guildName"
           :player-a-name="playerAName"

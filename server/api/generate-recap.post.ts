@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   let configData: any = {}
   
   try {
-    const response = await $fetch<any>(`${sheetUrl}?action=getData`, {
+    const response = await $fetch<any>(`${sheetUrl}?action=getData&secretToken=${config.gasSecretToken}`, {
       method: 'GET',
       timeout: 10000
     })

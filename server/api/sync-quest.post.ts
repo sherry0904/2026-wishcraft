@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
       method: 'POST',
       body: {
         action: 'toggleQuest',
+        secretToken: config.gasSecretToken,
         player: body.player,
         questId: body.questId,
         date: body.date,

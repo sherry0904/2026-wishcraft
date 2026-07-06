@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
       method: 'POST',
       body: {
         action: 'saveConfig',
+        secretToken: config.gasSecretToken,
         guildName: body.guildName,
         playerAName: body.playerAName,
         playerBName: body.playerBName,

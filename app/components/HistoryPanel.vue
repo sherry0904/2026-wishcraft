@@ -18,12 +18,27 @@
       <div v-if="activeTab === 'logs'" class="tab-content">
         <div class="section-title">點數存摺交易明細 (LEDGER STATEMENTS)</div>
         
-        <div v-if="sortedLogs.length === 0" class="empty-history">
-          目前點數存摺無任何交易明細。
+        <div class="ledger-filter-bar">
+          <select v-model="filterMode" class="ledger-filter-select">
+            <option value="this_month">本月紀錄</option>
+            <option value="last_month">上個月</option>
+            <option value="last_3_months">近三個月</option>
+            <option value="all">全部紀錄</option>
+            <option value="custom">自訂區間...</option>
+          </select>
+          <div v-if="filterMode === 'custom'" class="custom-date-inputs">
+            <input type="date" v-model="customStartDate" class="date-input" />
+            <span class="date-separator">-</span>
+            <input type="date" v-model="customEndDate" class="date-input" />
+          </div>
+        </div>
+
+        <div v-if="rangeFilteredLogs.length === 0" class="empty-history">
+          目前該區間無任何交易明細。
         </div>
         <div v-else class="ledger-container scrollable-content">
           <div 
-            v-for="(log, idx) in sortedLogs" 
+            v-for="(log, idx) in displayedLogs" 
             :key="idx" 
             class="ledger-row"
             :class="{ 
@@ -54,12 +69,17 @@
               </div>
               
               <div class="ledger-amount-col">
-                <span v-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
-                  {{ log.XP }}
-                </span>
-                <span v-else class="amount-val text-gain">
-                  +{{ log.XP }}
-                </span>
+                <div class="amount-val-wrapper">
+                  <span v-if="log.QuestId.startsWith('redeem_')" class="amount-val text-loss">
+                    {{ log.XP }}
+                  </span>
+                  <span v-else class="amount-val text-gain">
+                    +{{ log.XP }}
+                  </span>
+                </div>
+                <div class="balance-text text-muted">
+                  結餘: {{ log.Balance }} XP
+                </div>
               </div>
             </div>
             
@@ -73,6 +93,13 @@
                 {{ log.Player === 'A' ? playerAName : playerBName }}
               </span>
             </div>
+          </div>
+          
+          <!-- 載入更多按鈕 -->
+          <div v-if="displayLimit < rangeFilteredLogs.length" class="load-more-wrapper">
+            <button class="load-more-btn" @click="displayLimit += 50">
+              載入更早的紀錄 (目前顯示 {{ displayedLogs.length }} / {{ rangeFilteredLogs.length }})
+            </button>
           </div>
         </div>
       </div>
@@ -156,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 const props = defineProps<{
   logs: any[]
@@ -278,6 +305,27 @@ function getRedemptionName(questId: string): string {
   return item ? item.RewardName : '獎勵解鎖'
 }
 
+// 用於控制畫面上顯示的筆數
+const displayLimit = ref(50)
+const filterMode = ref('this_month')
+const customStartDate = ref('')
+const customEndDate = ref('')
+
+onMounted(() => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const todayStr = `${year}-${month}-${day}`
+  customStartDate.value = todayStr
+  customEndDate.value = todayStr
+})
+
+watch(filterMode, () => { displayLimit.value = 50 })
+watch([customStartDate, customEndDate], () => { 
+  if (filterMode.value === 'custom') displayLimit.value = 50 
+})
+
 const sortedLogs = computed(() => {
   const baseLogs = [...props.logs]
   const virtualLogs: any[] = []
@@ -338,9 +386,68 @@ const sortedLogs = computed(() => {
     }
   })
 
-  return [...baseLogs, ...virtualLogs].sort((a, b) => {
-    return new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime()
+  const allLogs = [...baseLogs, ...virtualLogs].sort((a, b) => {
+    return new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime()
   })
+
+  let balanceA = 0
+  let balanceB = 0
+
+  allLogs.forEach(log => {
+    if (log.Player === 'A') {
+      balanceA += Number(log.XP) || 0
+      log.Balance = balanceA
+    } else if (log.Player === 'B') {
+      balanceB += Number(log.XP) || 0
+      log.Balance = balanceB
+    }
+  })
+
+  return allLogs.reverse()
+})
+
+const rangeFilteredLogs = computed(() => {
+  const allLogs = sortedLogs.value
+  if (filterMode.value === 'all') return allLogs
+
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+
+  return allLogs.filter(log => {
+    const logDate = new Date(parseToLocalDateStr(log.Date))
+    const logYear = logDate.getFullYear()
+    const logMonth = logDate.getMonth()
+
+    if (filterMode.value === 'this_month') {
+      return logYear === currentYear && logMonth === currentMonth
+    }
+    if (filterMode.value === 'last_month') {
+      let targetYear = currentYear
+      let targetMonth = currentMonth - 1
+      if (targetMonth < 0) { targetMonth = 11; targetYear -= 1 }
+      return logYear === targetYear && logMonth === targetMonth
+    }
+    if (filterMode.value === 'last_3_months') {
+      let targetYear = currentYear
+      let targetMonth = currentMonth - 2
+      if (targetMonth < 0) { targetMonth += 12; targetYear -= 1 }
+      const threeMonthsAgoDate = new Date(targetYear, targetMonth, 1)
+      return logDate >= threeMonthsAgoDate
+    }
+    if (filterMode.value === 'custom') {
+      const start = customStartDate.value ? new Date(customStartDate.value) : new Date('2000-01-01')
+      const end = customEndDate.value ? new Date(customEndDate.value) : new Date('2100-01-01')
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+      return logDate >= start && logDate <= end
+    }
+    return true
+  })
+})
+
+const displayedLogs = computed(() => {
+  return rangeFilteredLogs.value.slice(0, displayLimit.value)
 })
 
 const past7DaysStats = computed(() => {
@@ -595,10 +702,25 @@ const monthlyStats = computed(() => {
 
 .ledger-amount-col {
   font-family: var(--font-title);
-  font-size: 0.95rem;
   font-weight: 800;
   text-align: right;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.amount-val-wrapper {
+  font-size: 0.95rem;
+}
+
+.balance-text {
+  font-size: 0.7rem;
+  margin-top: 2px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-body);
 }
 
 .text-gain {
@@ -609,6 +731,76 @@ const monthlyStats = computed(() => {
 .text-loss {
   color: #ff4d6d;
   text-shadow: 0 0 5px rgba(255, 77, 109, 0.2);
+}
+
+.load-more-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+  margin-top: 0.5rem;
+}
+
+.load-more-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.load-more-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* 存摺篩選器 */
+.ledger-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ledger-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: rgba(255, 255, 255, 0.05);
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 0.5rem 2.5rem 0.5rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.custom-date-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.date-separator {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* 日週統計 */

@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
       method: 'POST',
       body: {
         action: 'useSkip',
+        secretToken: config.gasSecretToken,
         player: body.player,
         date: body.date
       }
