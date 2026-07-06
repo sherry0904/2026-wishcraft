@@ -23,64 +23,68 @@ export const useWebPush = () => {
     }
   }
 
-  const subscribe = async () => {
+  /**
+   * 訂閱推播通知。
+   * 回傳 'success' | 'permission_denied' | 'error'
+   * 由呼叫方決定要顯示什麼 UI（toast / alert）
+   */
+  const subscribe = async (): Promise<'success' | 'permission_denied' | 'error'> => {
     try {
       const permission = await Notification.requestPermission()
       permissionGranted.value = permission === 'granted'
-      
+
       if (permission !== 'granted') {
-        alert('您必須允許通知權限才能接收定時提醒！')
-        return
+        return 'permission_denied'
       }
 
       const registration = await navigator.serviceWorker.ready
-      
-      // 從 Nuxt config 中讀取 Public Key
+
       const config = useRuntimeConfig()
       const applicationServerKey = config.public.vapidPublicKey
-      
-      const padding = '='.repeat((4 - applicationServerKey.length % 4) % 4);
-      const base64 = (applicationServerKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
+
+      const padding = '='.repeat((4 - applicationServerKey.length % 4) % 4)
+      const base64 = (applicationServerKey + padding).replace(/\-/g, '+').replace(/_/g, '/')
+      const rawData = window.atob(base64)
+      const outputArray = new Uint8Array(rawData.length)
       for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+        outputArray[i] = rawData.charCodeAt(i)
       }
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: outputArray
       })
-      
-      console.log('Push subscription successful:', subscription)
-      
-      // 發送到後端，後端會立刻進行回聲測試推播
+
       await $fetch('/api/push/subscribe', {
         method: 'POST',
         body: subscription
       })
 
       isSubscribed.value = true
-      alert('已成功開啟通知！請檢查手機是否收到測試通知 🎉')
+      return 'success'
     } catch (e) {
       console.error('Subscription failed', e)
-      alert('開啟通知失敗，請確認您的瀏覽器是否支援或已封鎖通知。\\n詳細錯誤：' + (e as Error).message)
+      return 'error'
     }
   }
 
-  const unsubscribe = async () => {
+  /**
+   * 取消訂閱推播通知。
+   * 回傳 true 表示成功，false 表示失敗。
+   */
+  const unsubscribe = async (): Promise<boolean> => {
     try {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.getSubscription()
       if (subscription) {
         await subscription.unsubscribe()
         isSubscribed.value = false
-        // 同步通知後端刪除該訂閱
-        // await $fetch('/api/push/unsubscribe', { method: 'POST', body: { endpoint: subscription.endpoint } })
-        alert('已關閉通知！')
+        return true
       }
+      return false
     } catch (e) {
       console.error('Unsubscribe failed', e)
+      return false
     }
   }
 

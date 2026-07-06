@@ -15,19 +15,40 @@
 </template>
 
 <script setup lang="ts">
+import { inject } from 'vue'
 import { useWebPush } from '~/composables/useWebPush'
 
 const { isSupported, isSubscribed, subscribe, unsubscribe } = useWebPush()
 
+// 從 index.vue 的 provide 取得 showToast，若不存在則 fallback 到 alert
+const showToast = inject<(msg: string, type?: string, duration?: number) => void>('showToast')
+
+const toast = (msg: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+  if (showToast) {
+    showToast(msg, type)
+  } else {
+    alert(msg)
+  }
+}
+
 const toggleSubscription = async (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.checked) {
-    await subscribe()
-    if (!isSubscribed.value) {
-      target.checked = false // 如果訂閱失敗則復原
+    const result = await subscribe()
+    if (result === 'success') {
+      toast('通知已開啟！每天晚上 9 點會提醒你填寫今日任務 🔔', 'success')
+    } else if (result === 'permission_denied') {
+      toast('請在瀏覽器設定中允許通知權限，才能接收提醒', 'warning')
+      target.checked = false
+    } else {
+      toast('開啟通知失敗，請確認瀏覽器是否支援推播功能', 'error')
+      target.checked = false
     }
   } else {
-    await unsubscribe()
+    const ok = await unsubscribe()
+    if (ok) {
+      toast('已關閉每日提醒通知', 'info')
+    }
   }
 }
 </script>
