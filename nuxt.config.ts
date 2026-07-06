@@ -17,6 +17,7 @@ export default defineNuxtConfig({
       name: 'WishCraft',
       short_name: 'WishCraft',
       description: 'WishCraft 日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！',
+      display: 'standalone',
       theme_color: '#0d0221',
       background_color: '#0d0221',
       icons: [
@@ -66,7 +67,10 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
         { name: 'description', content: 'WishCraft 日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！' },
-        { name: 'theme-color', content: '#0d0221' }
+        { name: 'theme-color', content: '#0d0221' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: 'WishCraft' }
       ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
