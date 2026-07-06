@@ -35,29 +35,36 @@ export const useWebPush = () => {
 
       const registration = await navigator.serviceWorker.ready
       
-      // 這是測試用的 VAPID Public Key，正式環境需要從後端/環境變數獲取
-      // 使用 web-push 套件生成: npx web-push generate-vapid-keys
-      const applicationServerKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuB-5g8XJp_c8qZ4-E6L05V6k8' 
+      // 從 Nuxt config 中讀取 Public Key
+      const config = useRuntimeConfig()
+      const applicationServerKey = config.public.vapidPublicKey
       
+      const padding = '='.repeat((4 - applicationServerKey.length % 4) % 4);
+      const base64 = (applicationServerKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey
+        applicationServerKey: outputArray
       })
       
-      // 這裡應該將 subscription 發送到後端儲存
       console.log('Push subscription successful:', subscription)
       
-      // 模擬發送到後端
+      // 發送到後端，後端會立刻進行回聲測試推播
       await $fetch('/api/push/subscribe', {
         method: 'POST',
         body: subscription
       })
 
       isSubscribed.value = true
-      alert('已成功開啟通知！每天 21:00 您將收到提醒。')
+      alert('已成功開啟通知！請檢查手機是否收到測試通知 🎉')
     } catch (e) {
       console.error('Subscription failed', e)
-      alert('開啟通知失敗，請確認您的瀏覽器是否支援或已封鎖通知。')
+      alert('開啟通知失敗，請確認您的瀏覽器是否支援或已封鎖通知。\\n詳細錯誤：' + (e as Error).message)
     }
   }
 

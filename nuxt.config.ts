@@ -6,7 +6,11 @@ export default defineNuxtConfig({
     sheetUrl: process.env.NUXT_GUEST_SHEET_URL || '',
     passcode: process.env.APP_PASSCODE || '2026',
     sessionPassword: process.env.SESSION_PASSWORD || 'default-secret-password-must-be-32-chars-long',
-    gasSecretToken: process.env.GAS_SECRET_TOKEN || 'default-secret-token'
+    gasSecretToken: process.env.GAS_SECRET_TOKEN || 'default-secret-token',
+    vapidPrivateKey: process.env.NUXT_VAPID_PRIVATE_KEY || '',
+    public: {
+      vapidPublicKey: 'BMnAef4leHx5ry3Deq6Cuu6EfotnR-FhUMcggtvXr4d_5qTKwIsYas9_7Rgbc7t0Hv3zCI4AZ8fUzlFqlyn9ye0'
+    }
   },
   modules: [
     '@vite-pwa/nuxt'
@@ -70,7 +74,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
         { name: 'description', content: 'WishCraft 日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！' },
         { name: 'theme-color', content: '#0d0221' },
-        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'WishCraft' }
       ],
