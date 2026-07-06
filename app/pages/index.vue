@@ -1563,15 +1563,10 @@ onMounted(() => {
 }
 
 .lock-icon {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--neon-gold);
-  margin-left: 0.4rem;
-  background: rgba(255, 183, 3, 0.1);
-  border: 1px solid rgba(255, 183, 3, 0.2);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-left: 0.35rem;
   vertical-align: middle;
+  opacity: 0.8;
 }
 
 .calendar-icon {
@@ -1580,6 +1575,10 @@ onMounted(() => {
 
 
 .date-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   font-family: var(--font-body);
   font-size: 1.25rem;
   font-weight: 900;

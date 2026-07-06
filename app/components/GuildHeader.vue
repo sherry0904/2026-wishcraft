@@ -10,7 +10,7 @@
       <div class="top-bar-right" v-if="activePlayer">
         <span v-if="isSynergyActive" class="top-bar-synergy-glow" title="今日默契共鳴達成">⚡</span>
         <div class="top-bar-user-pill" :class="activePlayer === 'A' ? 'pill-a' : 'pill-b'">
-          <span class="top-bar-avatar">{{ activePlayer === 'A' ? 'A' : 'B' }}</span>
+          <span class="top-bar-avatar">{{ activePlayer === 'A' ? (playerAName || 'A').charAt(0) : (playerBName || 'B').charAt(0) }}</span>
           <span class="top-bar-player-name">{{ activePlayer === 'A' ? playerAName : playerBName }}</span>
           <span class="top-bar-balance">
             <span class="xp-number">{{ formatXp(activePlayer === 'A' ? playerABalance : playerBBalance) }}</span>
