@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       method: 'POST',
       body: {
         action: 'useGift',
+        secretToken: config.gasSecretToken,
         giftId: body.giftId
       }
     })

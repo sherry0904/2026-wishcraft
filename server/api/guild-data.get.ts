@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // 呼叫 Google Apps Script API
-    const response = await $fetch<any>(`${sheetUrl}?action=getData`, {
+    const response = await $fetch<any>(`${sheetUrl}?action=getData&secretToken=${config.gasSecretToken}`, {
       method: 'GET',
       timeout: 10000 // 10秒逾時
     })
