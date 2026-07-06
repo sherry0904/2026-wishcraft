@@ -346,7 +346,7 @@
         />
 
         <!-- 2.0 新增：⚙️ 測試模擬沙箱 (TEST SANDBOX) -->
-        <div class="debug-sandbox-card game-card">
+        <div v-if="isDevMode" class="debug-sandbox-card game-card">
           <h3 class="debug-title text-neon-gold">⚙️ 測試模擬沙箱 (TEST SANDBOX)</h3>
           <p class="debug-desc">此區塊提供一鍵模擬加分、卡片生成，方便您在日常尚未完成時快速體驗商店兌換、寫卡片送禮與扭蛋盲盒功能。</p>
           
@@ -380,9 +380,13 @@
               :disabled="activeDebugAction !== null" 
               @click="debugClearAllLogs"
             >
-              {{ activeDebugAction === 'clear' ? '🧹 正在清空試算表與數據...' : '🧹 一鍵清空所有歷史紀錄' }}
+              {{ activeDebugAction === 'clear_all' ? '⚡ 正在清除...' : '🧹 一鍵清空所有歷史紀錄' }}
             </button>
           </div>
+        </div>
+
+        <div class="app-version-footer" @click="handleVersionClick">
+          WishCraft v1.0.0
         </div>
       </div>
 
@@ -513,7 +517,25 @@ const isSavingConfig = ref(false)
 const isRedeeming = ref(false)
 const errorMessage = ref('')
 const warningMessage = ref('')
-const activeDebugAction = ref<'xp100' | 'xp500' | 'gift' | 'clear' | null>(null)
+const isAddingHistory = ref(false)
+const activeDebugAction = ref<string | null>(null)
+
+// 開發者模式與連擊隱藏開關
+const isDevMode = ref(false)
+const versionClickCount = ref(0)
+let versionClickTimeout: ReturnType<typeof setTimeout> | null = null
+
+function handleVersionClick() {
+  versionClickCount.value++
+  if (versionClickCount.value === 5) {
+    isDevMode.value = true
+    showToast('已開啟開發者沙箱模式！', 'success')
+  }
+  if (versionClickTimeout) clearTimeout(versionClickTimeout)
+  versionClickTimeout = setTimeout(() => {
+    versionClickCount.value = 0
+  }, 2000)
+}
 
 // 分頁選取 ('quests' | 'shop' | 'ledger' | 'reports' | 'settings')
 const currentNavTab = ref<'quests' | 'shop' | 'ledger' | 'reports' | 'settings'>('quests')
@@ -1279,7 +1301,7 @@ async function debugCreateTestGift() {
 async function debugClearAllLogs() {
   if (activeDebugAction.value) return
   if (!confirm('⚠️ 確定要清空所有交易、打卡與請假歷史紀錄嗎？清空後錢包會歸零重置。')) return
-  activeDebugAction.value = 'clear'
+  activeDebugAction.value = 'clear_all'
   
   // 1. 樂觀更新：在 0ms 內清空前端數值，讓所有點數和歷史在眼前瞬間消失，體驗乾淨俐落！
   const oldLogs = [...logs.value]
@@ -2413,5 +2435,22 @@ onMounted(() => {
 .btn-retry:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 20px rgba(255, 77, 109, 0.6);
+}
+
+.app-version-footer {
+  text-align: center;
+  margin-top: 3rem;
+  margin-bottom: 2rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.2);
+  letter-spacing: 2px;
+  font-family: var(--font-title);
+  user-select: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.app-version-footer:active {
+  color: rgba(255, 255, 255, 0.5);
 }
 </style>
