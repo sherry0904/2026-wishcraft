@@ -919,6 +919,9 @@ function triggerConfetti() {
 // 追蹤同步中的請求數，避免樂觀更新被 fetchAllData 覆蓋導致畫面閃爍
 const pendingSyncCount = ref(0)
 
+// 序列化 GAS 請求的 Promise chain，防止並發寫入 Sheets 造成 500 衝突
+let syncChain: Promise<void> = Promise.resolve()
+
 // 9. 載入資料庫資料
 async function fetchAllData(isAutoRefresh = false) {
   if (pendingSyncCount.value > 0) return // 如果有正在同步的請求，先不更新資料以保護樂觀 UI
@@ -984,11 +987,15 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   const quest = quests.value.find(q => q.Id === payload.questId)
   const questName = quest ? quest.Name : '任務'
 
+  // 在進 queue 前截取快照，防止 queue 延遲執行時讀到已改變的 reactive 值
+  const playerSnapshot = activePlayer.value
+  const dateSnapshot = selectedDateStr.value
+
   // 1. 前端 UI 立即反應 (樂觀更新)
   const tempLog = {
     Timestamp: new Date().toISOString(),
-    Date: selectedDateStr.value,
-    Player: activePlayer.value,
+    Date: dateSnapshot,
+    Player: playerSnapshot,
     QuestId: payload.questId,
     XP: payload.xp,
     IsSkipPass: false
@@ -1002,8 +1009,8 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   } else {
     // 移除所有符合的紀錄，以防有重複的髒資料
     logs.value = logs.value.filter(l => 
-      !(parseToLocalDateStr(l.Date) === selectedDateStr.value && 
-        l.Player === activePlayer.value && 
+      !(parseToLocalDateStr(l.Date) === dateSnapshot && 
+        l.Player === playerSnapshot && 
         l.QuestId === payload.questId && 
         !l.IsSkipPass)
     )
@@ -1014,38 +1021,43 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   checkMilestoneUnlock(totalXp.value, lastXpVal)
   lastXpVal = totalXp.value
 
-  // 2. 向後端同步
+  // 2. 向後端同步（串行排隊，防止並發寫入 GAS/Sheets 造成 500）
+  // 使用截取的快照值，不依賴 queue 執行時的 reactive 狀態
   pendingSyncCount.value++
-  try {
-    const res = await $fetch<any>('/api/sync-quest', {
-      method: 'POST',
-      body: {
-        player: activePlayer.value,
-        questId: payload.questId,
-        date: selectedDateStr.value,
-        completed: payload.completed,
-        xp: payload.xp
+  syncChain = syncChain.then(async () => {
+    try {
+      const res = await $fetch<any>('/api/sync-quest', {
+        method: 'POST',
+        body: {
+          player: playerSnapshot,
+          questId: payload.questId,
+          date: dateSnapshot,
+          completed: payload.completed,
+          xp: payload.xp
+        }
+      })
+      
+      if (res.warning) {
+        warningMessage.value = res.warning
+        showToast(res.warning, 'warning')
       }
-    })
-    
-    if (res.warning) {
-      warningMessage.value = res.warning
-      showToast(res.warning, 'warning')
+    } catch (err: any) {
+      // 同步失敗，回滾到此次操作前的狀態
+      logs.value = oldLogs
+      lastXpVal = totalXp.value
+      errorMessage.value = err.data?.message || '同步任務失敗，已回滾變更。'
+      showToast(errorMessage.value, 'error')
+    } finally {
+      pendingSyncCount.value--
+      // 所有請求完成後才做一次 fetchAllData，以伺服器為最終依據
+      // （pendingSyncCount 歸零代表 queue 已清空）
+      if (pendingSyncCount.value === 0) {
+        await fetchAllData()
+      }
     }
-  } catch (err: any) {
-    // 同步失敗，回滾狀態
-    logs.value = oldLogs
-    lastXpVal = totalXp.value
-    errorMessage.value = err.data?.message || '同步任務失敗，已回滾變更。'
-    showToast(errorMessage.value, 'error')
-  } finally {
-    pendingSyncCount.value--
-    // 當所有請求都完成時，重新載入確保與後端完全一致
-    if (pendingSyncCount.value === 0) {
-      await fetchAllData()
-    }
-  }
+  })
 }
+
 
 // 11. 使用請假券事件
 async function onUseSkip(player: 'A' | 'B') {
