@@ -18,6 +18,8 @@ export default defineNuxtConfig({
       short_name: 'WishCraft',
       description: 'WishCraft 日常任務解鎖系統 - 透過日常任務累積 XP，共同解鎖實體獎勵！',
       display: 'standalone',
+      start_url: '/',
+      scope: '/',
       theme_color: '#0d0221',
       background_color: '#0d0221',
       icons: [
