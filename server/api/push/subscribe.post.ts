@@ -3,40 +3,53 @@ import webpush from 'web-push'
 export default defineEventHandler(async (event) => {
   try {
     const subscription = await readBody(event)
-
     const config = useRuntimeConfig()
-    
-    // 從環境變數或 Nuxt 設定讀取 VAPID 金鑰
+    const sheetUrl = config.sheetUrl
+
     const publicVapidKey = config.public.vapidPublicKey
     const privateVapidKey = config.vapidPrivateKey
 
-    // 這個 email 只是用來讓推播服務商（Apple/Google）在有問題時可以聯絡我們
     webpush.setVapidDetails(
       'mailto:test@example.com',
       publicVapidKey,
       privateVapidKey
     )
 
-    // 構建通知內容
-    const payload = JSON.stringify({
-      title: '測試成功！🎉',
-      body: '您的手機已經完美支援定時推播提醒！未來每晚 21:00 如果還沒完成任務，我們就會這樣提醒您喔！',
-      icon: '/icon.jpg', // 您的 App 圖示
-      badge: '/icon.jpg',
-      data: {
-        url: '/'
+    // 1. 將訂閱資料儲存到 Google Sheets（PushSubscriptions tab）
+    if (sheetUrl) {
+      try {
+        await $fetch<any>(sheetUrl, {
+          method: 'POST',
+          body: {
+            action: 'savePushSubscription',
+            secretToken: config.gasSecretToken,
+            endpoint: subscription.endpoint,
+            subscription: JSON.stringify(subscription)
+          }
+        })
+      } catch (saveError) {
+        // 儲存失敗不影響測試通知，僅記錄警告
+        console.warn('Failed to save push subscription to Sheets:', saveError)
       }
+    }
+
+    // 2. 發送測試通知（讓使用者確認已成功訂閱）
+    const payload = JSON.stringify({
+      title: '⚔️ WishCraft 通知已開啟！',
+      body: '太好了！從現在起，每晚 9 點我們會提醒你完成今日任務，一起養成好習慣 💪',
+      icon: '/icon.jpg',
+      badge: '/icon.jpg',
+      data: { url: '/' }
     })
 
-    // 發送通知 (回聲測試)
     await webpush.sendNotification(subscription, payload)
 
-    return { success: true, message: 'Test notification sent' }
+    return { success: true, message: 'Subscribed and test notification sent' }
   } catch (error) {
-    console.error('Error sending push notification:', error)
+    console.error('Error in push subscribe handler:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to send notification'
+      statusMessage: 'Failed to process push subscription'
     })
   }
 })

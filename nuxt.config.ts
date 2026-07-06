@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     sessionPassword: process.env.SESSION_PASSWORD || 'default-secret-password-must-be-32-chars-long',
     gasSecretToken: process.env.GAS_SECRET_TOKEN || 'default-secret-token',
     vapidPrivateKey: process.env.NUXT_VAPID_PRIVATE_KEY || '',
+    cronSecret: process.env.CRON_SECRET || '',
     public: {
       vapidPublicKey: 'BMnAef4leHx5ry3Deq6Cuu6EfotnR-FhUMcggtvXr4d_5qTKwIsYas9_7Rgbc7t0Hv3zCI4AZ8fUzlFqlyn9ye0'
     }
