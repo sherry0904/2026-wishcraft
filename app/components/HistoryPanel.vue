@@ -56,7 +56,15 @@
                 </span>
                 <!-- 情況 B：點數商店兌換 -->
                 <span v-else-if="log.QuestId.startsWith('redeem_')" class="text-white">
-                  兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
+                  <template v-if="log.QuestId === 'redeem_tier_98'">
+                    送出：<span class="text-neon-gold">💌 愛心小卡</span>
+                  </template>
+                  <template v-else-if="log.QuestId === 'redeem_tier_8'">
+                    送出：<span class="text-neon-gold">🎨 自訂驚喜券</span>
+                  </template>
+                  <template v-else>
+                    兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
+                  </template>
                 </span>
                 <!-- 情況 D：連擊加成 (虛擬日誌) -->
                 <span v-else-if="log.QuestId === 'combo_bonus'" class="text-neon-gold">
