@@ -758,7 +758,9 @@ async function claimGift(giftId: string) {
     const res = await apiFetch<any>('/api/use-gift', {
       method: 'POST',
       body: {
-        giftId: giftId
+        giftId: giftId,
+        receiver: gift?.Receiver ?? null,
+        attachedXp: Number(gift?.AttachedXp) || 0
       }
     })
     

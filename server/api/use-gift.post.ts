@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
       body: {
         action: 'useGift',
         secretToken: config.gasSecretToken,
-        giftId: body.giftId
+        giftId: body.giftId,
+        receiver: body.receiver ?? null,
+        attachedXp: body.attachedXp || 0
       }
     })
     return response

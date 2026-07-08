@@ -796,8 +796,17 @@ const totalXp = computed(() => {
 // 7. 計算雙方各自的餘額與累計貢獻
 const playerStats = computed(() => {
   const logsByDate: Record<string, any[]> = {}
+  let aGiftXp = 0
+  let bGiftXp = 0
+
   logs.value.forEach(log => {
     if (log.QuestId.startsWith('redeem_')) return
+    // 收禮點數不受 combo 乘數影響，單獨累加
+    if (log.QuestId.startsWith('claim_gift_')) {
+      if (log.Player === 'A') aGiftXp += Number(log.XP) || 0
+      else if (log.Player === 'B') bGiftXp += Number(log.XP) || 0
+      return
+    }
     const localDateStr = parseToLocalDateStr(log.Date)
     if (!logsByDate[localDateStr]) {
       logsByDate[localDateStr] = []
@@ -835,8 +844,8 @@ const playerStats = computed(() => {
     .filter(log => log.Player === 'B' && log.QuestId.startsWith('redeem_'))
     .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
 
-  const aContribution = Math.round(aEarned)
-  const bContribution = Math.round(bEarned)
+  const aContribution = Math.round(aEarned + aGiftXp)
+  const bContribution = Math.round(bEarned + bGiftXp)
   const aBalance = Math.max(aContribution + aSpent, 0)
   const bBalance = Math.max(bContribution + bSpent, 0)
 

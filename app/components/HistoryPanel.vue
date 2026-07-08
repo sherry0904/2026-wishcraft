@@ -73,6 +73,10 @@
                 <span v-else-if="log.QuestId === 'combo_bonus'" class="text-neon-gold">
                   ⚡ 日常連擊加成 ({{ log.comboMult }}x)
                 </span>
+                <!-- 情況 E：領取愛心小卡附帶點數 -->
+                <span v-else-if="log.QuestId.startsWith('claim_gift_')" class="text-white">
+                  收到：<span class="text-neon-gold">💌 愛心小卡贈點</span>
+                </span>
                 <!-- 情況 C：日常任務完成 -->
                 <span v-else class="text-white">
                   {{ getQuestName(log.QuestId) }}
