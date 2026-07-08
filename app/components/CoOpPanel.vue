@@ -44,7 +44,7 @@
             v-else
             class="btn-skip"
             :disabled="!canUseSkip('A')"
-            @click="$emit('useSkip', 'A')"
+            @click="openSkipModal('A')"
           >
             使用請假券
           </button>
@@ -145,18 +145,40 @@
             v-else
             class="btn-skip"
             :disabled="!canUseSkip('B')"
-            @click="$emit('useSkip', 'B')"
+            @click="openSkipModal('B')"
           >
             使用請假券
           </button>
         </div>
       </div>
     </div>
+
+    <!-- 請假券確認彈窗 -->
+    <ClientOnly>
+      <Teleport to="body">
+        <div v-if="showSkipModal" class="modal-overlay skip-modal-overlay">
+          <div class="modal-card skip-modal-card">
+            <div class="skip-modal-icon">🛋️</div>
+            <h3 class="modal-title skip-modal-title">確認使用請假券？</h3>
+            <p class="modal-text skip-modal-text">
+              使用請假券後，系統將自動將今天所有任務視為完成，讓你優雅休息一天。
+            </p>
+            <p class="skip-modal-warning">
+              ⚠️此操作一旦確認，無法撤回。
+            </p>
+            <div class="modal-actions skip-modal-actions">
+              <button class="btn-cancel skip-btn-cancel" @click="showSkipModal = false">再想想</button>
+              <button class="btn-confirm-redeem skip-btn-confirm" @click="confirmSkip">好，我要請假</button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+    </ClientOnly>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   activePlayer: 'A' | 'B' | null
@@ -181,9 +203,24 @@ const props = defineProps<{
   isReadOnly?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'useSkip', player: 'A' | 'B'): void
 }>()
+
+const showSkipModal = ref(false)
+const playerToSkip = ref<'A' | 'B' | null>(null)
+
+function openSkipModal(player: 'A' | 'B') {
+  playerToSkip.value = player
+  showSkipModal.value = true
+}
+
+function confirmSkip() {
+  if (playerToSkip.value) {
+    emit('useSkip', playerToSkip.value)
+  }
+  showSkipModal.value = false
+}
 
 // 所有 combo 類別（來自 prop 或 fallback）
 const allComboCats = computed(() => {
@@ -217,6 +254,150 @@ function canUseSkip(player: 'A' | 'B'): boolean {
 </script>
 
 <style scoped>
+/* Modal Styles (duplicated from LootDashboard for standalone use) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  width: 90%;
+  max-width: 400px;
+  background: #141822;
+  border-top: 3px solid var(--neon-gold);
+  padding: 1.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+}
+
+.modal-title {
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  font-weight: 900;
+  margin: 0 0 1rem 0;
+}
+
+.modal-text {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.btn-confirm-redeem {
+  background: linear-gradient(135deg, #ffb703, #fb8500);
+  border: none;
+  color: #0b0c10;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-confirm-redeem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 183, 3, 0.3);
+}
+
+/* Skip Modal Overrides */
+.skip-modal-card {
+  text-align: center;
+  padding: 2.5rem 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: #141822;
+}
+
+.skip-modal-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.skip-modal-title {
+  color: #fff;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.skip-modal-text {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.skip-modal-warning {
+  font-size: 0.9rem;
+  color: #e63946;
+  margin-bottom: 2rem;
+  font-weight: bold;
+}
+
+.skip-modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.skip-modal-actions > button {
+  flex: 1;
+  padding: 0.8rem;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+.skip-btn-cancel {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.skip-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.skip-btn-confirm {
+  background: rgba(230, 57, 70, 0.15);
+  border: 1px solid rgba(230, 57, 70, 0.3);
+  color: #ff6b6b;
+  box-shadow: none;
+}
+
+.skip-btn-confirm:hover {
+  background: rgba(230, 57, 70, 0.25);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.2);
+}
+
 .coop-panel {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

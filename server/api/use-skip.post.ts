@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   try {
     const config = useRuntimeConfig()
     const client = createClient(config.public.supabase.url, config.public.supabase.key)
-    const timestampStr = new Date().toISOString()
+    const timestampStr = getTaipeiISOString()
 
     const { error } = await client.from('quest_logs').insert({
       timestamp: timestampStr,

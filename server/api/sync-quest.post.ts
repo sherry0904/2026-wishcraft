@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
       if (error) throw error
     } else {
       // 新增打卡紀錄
-      const timestampStr = new Date().toISOString()
+      const timestampStr = getTaipeiISOString()
 
       const { error } = await client.from('quest_logs').insert({
         timestamp: timestampStr,

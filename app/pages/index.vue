@@ -127,7 +127,7 @@
 
           <div class="summary-bar-bottom">
             <div class="daily-points-display">
-              <span class="daily-points-label">日得點</span>
+              <span class="daily-points-label">{{ isSelectedDateToday ? '日得點' : formattedSelectedDate.substring(5) + ' 結算得點' }}</span>
               <div class="daily-points-values">
                 <div class="point-item">
                   <span class="point-avatar avatar-small-a">{{ (playerAName || 'A').charAt(0) }}</span>
@@ -618,6 +618,10 @@ const isReadOnly = computed(() => {
   return selectedDateOffset.value < -2
 })
 
+const isBackfillMode = computed(() => {
+  return selectedDateOffset.value < 0 && !isReadOnly.value
+})
+
 function changeSelectedDate(delta: number) {
   const nextOffset = selectedDateOffset.value + delta
   // 限制往前最多查閱 7 天（即 offset 在 0 到 -6 之間）
@@ -767,7 +771,7 @@ const xpEarnedTodayB = computed(() => {
 const totalXp = computed(() => {
   const logsByDate: Record<string, any[]> = {}
   logs.value.forEach(log => {
-    if (log.QuestId.startsWith('redeem_')) return // 忽略兌換扣點日誌
+    if (log.QuestId.startsWith('redeem_') || log.QuestId === 'receive_gift') return // 忽略兌換扣點日誌與接收禮物點數，避免影響公會總進度
 
     const localDateStr = parseToLocalDateStr(log.Date)
     if (!logsByDate[localDateStr]) {
@@ -796,7 +800,7 @@ const totalXp = computed(() => {
 const playerStats = computed(() => {
   const logsByDate: Record<string, any[]> = {}
   logs.value.forEach(log => {
-    if (log.QuestId.startsWith('redeem_')) return
+    if (log.QuestId.startsWith('redeem_') || log.QuestId === 'receive_gift') return
     const localDateStr = parseToLocalDateStr(log.Date)
     if (!logsByDate[localDateStr]) {
       logsByDate[localDateStr] = []
@@ -833,11 +837,19 @@ const playerStats = computed(() => {
   const bSpent = logs.value
     .filter(log => log.Player === 'B' && log.QuestId.startsWith('redeem_'))
     .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
+    
+  const aGiftIncome = logs.value
+    .filter(log => log.Player === 'A' && log.QuestId === 'receive_gift')
+    .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
+
+  const bGiftIncome = logs.value
+    .filter(log => log.Player === 'B' && log.QuestId === 'receive_gift')
+    .reduce((acc, log) => acc + (Number(log.XP) || 0), 0)
 
   const aContribution = Math.round(aEarned)
   const bContribution = Math.round(bEarned)
-  const aBalance = Math.max(aContribution + aSpent, 0)
-  const bBalance = Math.max(bContribution + bSpent, 0)
+  const aBalance = Math.max(aContribution + aSpent + aGiftIncome, 0)
+  const bBalance = Math.max(bContribution + bSpent + bGiftIncome, 0)
 
   return {
     aContribution,
@@ -1293,6 +1305,7 @@ async function debugCreateTestGift() {
       body: {
         sender: partner,
         receiver: buyer,
+        buyer: buyer,
         rewardName: '☕ 測試愛心咖啡卡',
         message: '這是一張由開發沙箱產生的測試卡片！點選使用看看吧！',
         xp: 0,

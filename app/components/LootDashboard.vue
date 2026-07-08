@@ -22,7 +22,7 @@
     <!-- 2.0 新增：我的收件夾 / 禮物卡盒 (Gift Box) -->
     <div class="giftbox-section">
       <div class="giftbox-header-row">
-        <div class="section-title">🎁 我的禮物卡盒</div>
+        <div class="section-title">我的禮物卡盒</div>
         <button 
           v-if="activePlayer" 
           class="btn-send-custom-note"
@@ -121,7 +121,7 @@
 
     <!-- 3. 夢想商店與扭蛋 -->
     <div class="shop-section">
-      <div class="section-title">🛒 養成福利商店</div>
+      <div class="section-title">養成福利商店</div>
       
       <div class="shop-grid">
         <!-- 🎰 幸運盲盒扭蛋卡片 (2.0 新增) -->
@@ -276,7 +276,7 @@
 
             <!-- 悄悄話留言框 (送禮時顯示) -->
             <div v-if="redeemType === 'gift' || selectedReward?.Tier === 8" class="message-input-wrapper">
-              <label class="input-lbl">💌 給夥伴的留言悄悄話：</label>
+              <label class="input-lbl">💌&nbsp;&nbsp;給夥伴的留言悄悄話：</label>
               <textarea 
                 class="textarea-msg" 
                 v-model="giftMessage" 
@@ -507,19 +507,24 @@ const xpOptions = computed(() => {
 const showArchivedGifts = ref(false)
 const customCouponTitle = ref('')
 const usedGiftIds = ref<string[]>([])
+const optimisticGifts = ref<any[]>([]) // 本地樂觀更新創建的禮物
 
-// 監聽外部 gifts 資料變更，當伺服器數據同步成功後，將已轉為 Used=true 的暫存項目自動過濾清理
+// 監聽外部 gifts 資料變更，當伺服器數據同步成功後，將已轉為 Used=true 的暫存項目自動過濾清理，並清除已同步的樂觀建立項目
 watch(() => props.gifts, () => {
   usedGiftIds.value = usedGiftIds.value.filter(id => {
     const g = props.gifts.find(item => item.Id === id)
     return g ? !g.Used : false
+  })
+  optimisticGifts.value = optimisticGifts.value.filter(og => {
+    return !props.gifts.some(g => g.Id === og.Id)
   })
 }, { deep: true })
 
 // 我的禮物卡盒清單：Receiver 是當前登入身分
 const myGifts = computed(() => {
   if (!props.activePlayer) return []
-  return props.gifts
+  const allGifts = [...props.gifts, ...optimisticGifts.value]
+  return allGifts
     .filter(g => g.Receiver === props.activePlayer)
     .sort((a, b) => new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime())
 })
@@ -595,6 +600,19 @@ async function executeRedeem() {
   const finalRewardName = item.Tier === 8
     ? `🎨 ${customCouponTitle.value.trim()}`
     : item.RewardName
+    
+  // 樂觀更新：立刻在畫面上顯示收到的卡片
+  const tempGiftId = 'optimistic_gift_' + Date.now()
+  optimisticGifts.value.push({
+    Id: tempGiftId,
+    Sender: sender,
+    Receiver: receiver,
+    RewardName: finalRewardName,
+    Message: message,
+    Timestamp: new Date().toISOString(),
+    Used: false,
+    AttachedXp: 0
+  })
   
   try {
     const res = await $fetch<any>('/api/send-gift', {
@@ -615,6 +633,7 @@ async function executeRedeem() {
       if (removeToast && toastId) removeToast(toastId)
       if (showToast) showToast(res.error, 'error')
       isRedeemingCoupon.value = false
+      optimisticGifts.value = optimisticGifts.value.filter(g => g.Id !== tempGiftId) // 失敗回滾
       return
     }
     
@@ -632,8 +651,10 @@ async function executeRedeem() {
     triggerConfetti()
     emit('refreshData')
   } catch (err: any) {
+    isRedeemingCoupon.value = false
+    optimisticGifts.value = optimisticGifts.value.filter(g => g.Id !== tempGiftId) // 失敗回滾
     if (removeToast && toastId) removeToast(toastId)
-    if (showToast) showToast(`兌換出錯: ${err.message}`, 'error')
+    if (showToast) showToast(`兌換失敗: ${err.message}`, 'error')
   } finally {
     isRedeemingCoupon.value = false
   }
@@ -659,10 +680,23 @@ async function executeSendCustomNote() {
   
   const selectedTheme = cardThemes.find(t => t.emoji === selectedThemeEmoji.value)
   const title = `${selectedThemeEmoji.value} ${selectedTheme?.label || '自訂'}卡片`
-  const displayTitle = attachedXpToSend.value > 0 ? `${title} (附 ${attachedXpToSend.value} XP)` : title
+  const displayTitle = title // 移除 (附 XX XP) 綴詞，因為下方按鈕已有顯示
   
   const defaultMsg = `今天也是充滿能量的一天，加油！`
   const message = customNoteMessage.value.trim() || defaultMsg
+  
+  // 樂觀更新：立刻在畫面上顯示收到的卡片
+  const tempGiftId = 'optimistic_note_' + Date.now()
+  optimisticGifts.value.push({
+    Id: tempGiftId,
+    Sender: buyer,
+    Receiver: partner,
+    RewardName: displayTitle,
+    Message: message,
+    Timestamp: new Date().toISOString(),
+    Used: false,
+    AttachedXp: attachedXpToSend.value
+  })
   
   try {
     const res = await $fetch<any>('/api/send-gift', {
@@ -670,6 +704,7 @@ async function executeSendCustomNote() {
       body: {
         sender: buyer,
         receiver: partner,
+        buyer: buyer,
         rewardName: displayTitle,
         message: message,
         xp: attachedXpToSend.value, // 卡片本身 0 XP，只扣除所附帶的贈禮 XP
@@ -683,6 +718,7 @@ async function executeSendCustomNote() {
     if (res.error) {
       if (removeToast && toastId) removeToast(toastId)
       if (showToast) showToast(res.error, 'error')
+      optimisticGifts.value = optimisticGifts.value.filter(g => g.Id !== tempGiftId) // 失敗回滾
       return
     }
 
@@ -698,6 +734,7 @@ async function executeSendCustomNote() {
     emit('refreshData')
   } catch (err: any) {
     isSendingNote.value = false
+    optimisticGifts.value = optimisticGifts.value.filter(g => g.Id !== tempGiftId) // 失敗回滾
     if (removeToast && toastId) removeToast(toastId)
     if (showToast) showToast(`送出卡片出錯: ${err.message}`, 'error')
   }
@@ -720,6 +757,19 @@ async function spinGacha() {
     
     const buyer = props.activePlayer!
     const partner = buyer === 'A' ? 'B' : 'A'
+    
+    // 樂觀更新：立刻在畫面上顯示收到的扭蛋卡片
+    const tempGiftId = 'optimistic_gacha_' + Date.now()
+    optimisticGifts.value.push({
+      Id: tempGiftId,
+      Sender: partner,
+      Receiver: buyer,
+      RewardName: reward.RewardName,
+      Message: '🎰 幸運扭蛋機抽中！這是命運的安排，請溫柔地為對方服務喔～',
+      Timestamp: new Date().toISOString(),
+      Used: false,
+      AttachedXp: 0
+    })
     
     // 扭蛋獲得實體券，是由對方為我執行 (Sender = partner, Receiver = me)
     try {
@@ -752,7 +802,9 @@ async function spinGacha() {
       emit('refreshData')
     } catch (err: any) {
       isSpanning.value = false
-      if (showToast) showToast(`扭蛋出錯: ${err.message}`, 'error')
+      showGachaResult.value = false
+      optimisticGifts.value = optimisticGifts.value.filter(g => g.Id !== tempGiftId) // 失敗回滾
+      if (showToast) showToast(`扭蛋發生錯誤: ${err.message}`, 'error')
     }
   }, 2500)
 }
@@ -956,6 +1008,13 @@ function triggerConfetti() {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.giftbox-header-row .section-title {
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .btn-send-custom-note {
@@ -972,6 +1031,7 @@ function triggerConfetti() {
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  white-space: nowrap;
 }
 
 .btn-send-custom-note:hover {
@@ -1390,6 +1450,7 @@ function triggerConfetti() {
 /* 兌換選項與留言框 */
 .redeem-type-selector {
   display: flex;
+  flex-direction: column;
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
@@ -1430,8 +1491,8 @@ function triggerConfetti() {
   height: 6px;
   background: var(--neon-gold);
   border-radius: 50%;
-  top: 4px;
-  left: 4px;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
 }
 
@@ -1580,6 +1641,7 @@ function triggerConfetti() {
   border-radius: 6px;
   cursor: pointer;
   transition: var(--transition-smooth);
+  white-space: nowrap;
 }
 
 .btn-xp-option:hover:not(:disabled) {

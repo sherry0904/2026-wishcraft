@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <div class="board-columns">
+    <div class="board-columns" :class="{ 'board-read-only': isReadOnly }">
       <!-- 我的任務欄位 -->
       <div class="quest-column my-quests">
         <h3 class="column-title">

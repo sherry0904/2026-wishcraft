@@ -16,7 +16,7 @@
     <div class="panel-body">
       <!-- 分頁 1：點數存摺 (Ledger) -->
       <div v-if="activeTab === 'logs'" class="tab-content">
-        <div class="section-title">點數存摺交易明細 (LEDGER STATEMENTS)</div>
+        <div class="section-title">點數存摺交易明細</div>
         
         <div class="ledger-filter-bar">
           <select v-model="filterMode" class="ledger-filter-select">
@@ -325,6 +325,8 @@ function formatLocalTime(timestamp: string): string {
 
 function getQuestName(questId: string): string {
   if (questId === 'skip') return '請假券'
+  if (questId === 'receive_gift') return '收下禮物 / 卡片'
+  if (questId.startsWith('debug_xp_')) return '系統測試 (Debug)'
   const q = props.quests.find(x => x.Id === questId)
   return q ? q.Name : questId
 }
@@ -368,7 +370,7 @@ const sortedLogs = computed(() => {
   const logsByDateAndPlayer: Record<string, { A: number, B: number, timestampA: string, timestampB: string }> = {}
   
   baseLogs.forEach(log => {
-    if (log.QuestId.startsWith('redeem_')) return
+    if (log.QuestId.startsWith('redeem_') || log.QuestId === 'receive_gift') return
     const dateStr = parseToLocalDateStr(log.Date)
     if (!logsByDateAndPlayer[dateStr]) {
       logsByDateAndPlayer[dateStr] = { A: 0, B: 0, timestampA: '', timestampB: '' }
@@ -688,6 +690,7 @@ const monthlyStats = computed(() => {
   flex: 1;
   padding-right: 0.5rem;
   line-height: 1.4;
+  word-break: break-word;
 }
 
 .ledger-row-bottom {
@@ -744,6 +747,7 @@ const monthlyStats = computed(() => {
   flex-direction: column;
   justify-content: center;
   align-items: flex-end;
+  flex-shrink: 0;
 }
 
 .amount-val-wrapper {
