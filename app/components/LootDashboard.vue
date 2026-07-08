@@ -22,13 +22,13 @@
     <!-- 2.0 新增：我的收件夾 / 禮物卡盒 (Gift Box) -->
     <div class="giftbox-section">
       <div class="giftbox-header-row">
-        <div class="section-title">🎁 我的禮物卡盒</div>
+        <div class="section-title"> 我的禮物卡盒</div>
         <button 
           v-if="activePlayer" 
           class="btn-send-custom-note"
           @click="openCustomNoteModal"
         >
-          💌 寫張愛心小卡
+          寫張愛心小卡
         </button>
       </div>
       
@@ -241,7 +241,7 @@
                 您即將花費 <strong class="text-neon-gold">{{ formatXp(selectedReward?.XPThreshold || 0) }} XP</strong> 兌換一張自訂券送給夥伴。
               </p>
               <div class="message-input-wrapper">
-                <label class="input-lbl">🎨 請輸入您的自訂券面名稱：</label>
+                <label class="input-lbl"><span>🎨</span><span>請輸入您的自訂券面名稱：</span></label>
                 <input 
                   type="text" 
                   class="input-text" 
@@ -276,7 +276,7 @@
 
             <!-- 悄悄話留言框 (送禮時顯示) -->
             <div v-if="redeemType === 'gift' || selectedReward?.Tier === 8" class="message-input-wrapper">
-              <label class="input-lbl">💌 給夥伴的留言悄悄話：</label>
+              <label class="input-lbl"><span>💌</span><span>給夥伴的留言悄悄話：</span></label>
               <textarea 
                 class="textarea-msg" 
                 v-model="giftMessage" 
@@ -1384,7 +1384,8 @@ function triggerConfetti() {
 /* 兌換選項與留言框 */
 .redeem-type-selector {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.6rem;
   margin-bottom: 1.25rem;
 }
 
@@ -1424,8 +1425,8 @@ function triggerConfetti() {
   height: 6px;
   background: var(--neon-gold);
   border-radius: 50%;
-  top: 4px;
-  left: 4px;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
 }
 
@@ -1445,6 +1446,9 @@ function triggerConfetti() {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .textarea-msg {
