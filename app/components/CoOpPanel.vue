@@ -44,7 +44,7 @@
             v-else
             class="btn-skip"
             :disabled="!canUseSkip('A')"
-            @click="$emit('useSkip', 'A')"
+            @click="promptSkipConfirm('A')"
           >
             使用請假券
           </button>
@@ -145,7 +145,7 @@
             v-else
             class="btn-skip"
             :disabled="!canUseSkip('B')"
-            @click="$emit('useSkip', 'B')"
+            @click="promptSkipConfirm('B')"
           >
             使用請假券
           </button>
@@ -153,10 +153,30 @@
       </div>
     </div>
   </div>
+
+  <!-- 請假券確認對話框 -->
+  <Teleport to="body">
+    <div v-if="skipConfirmVisible" class="skip-confirm-overlay" @click.self="skipConfirmVisible = false">
+      <div class="skip-confirm-modal">
+        <div class="skip-confirm-icon">🛋️</div>
+        <h3 class="skip-confirm-title">確認使用請假券？</h3>
+        <p class="skip-confirm-body">
+          辛苦了。使用請假券後，系統將自動將今天所有任務視為完成，讓你優雅休息一天。
+        </p>
+        <p class="skip-confirm-warning">
+          ⚠️ 此操作一旦確認，<strong>無法撤回</strong>。
+        </p>
+        <div class="skip-confirm-actions">
+          <button class="btn-skip-cancel" @click="skipConfirmVisible = false">再想想</button>
+          <button class="btn-skip-confirm" @click="confirmSkip">好，我要請假</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   activePlayer: 'A' | 'B' | null
@@ -181,9 +201,25 @@ const props = defineProps<{
   isReadOnly?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'useSkip', player: 'A' | 'B'): void
 }>()
+
+const skipConfirmVisible = ref(false)
+const pendingSkipPlayer = ref<'A' | 'B' | null>(null)
+
+function promptSkipConfirm(player: 'A' | 'B') {
+  pendingSkipPlayer.value = player
+  skipConfirmVisible.value = true
+}
+
+function confirmSkip() {
+  if (pendingSkipPlayer.value) {
+    emit('useSkip', pendingSkipPlayer.value)
+  }
+  skipConfirmVisible.value = false
+  pendingSkipPlayer.value = null
+}
 
 // 所有 combo 類別（來自 prop 或 fallback）
 const allComboCats = computed(() => {
@@ -599,5 +635,108 @@ function canUseSkip(player: 'A' | 'B'): boolean {
 .connector-line.line-active {
   background: linear-gradient(to right, var(--neon-purple), var(--neon-gold), var(--neon-blue));
   box-shadow: 0 0 8px rgba(255, 183, 3, 0.5);
+}
+
+/* 請假券確認對話框 */
+.skip-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.skip-confirm-modal {
+  background: var(--bg-card, #1a1a2e);
+  border: 1px solid rgba(255, 77, 109, 0.3);
+  border-radius: 16px;
+  padding: 2rem 2rem 1.5rem;
+  max-width: 380px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 0 40px rgba(255, 77, 109, 0.15);
+}
+
+.skip-confirm-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.skip-confirm-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+}
+
+.skip-confirm-body {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text-secondary, #aaa);
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.skip-confirm-warning {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: rgba(255, 77, 109, 0.85);
+  text-align: center;
+  margin: 0;
+}
+
+.skip-confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.btn-skip-cancel {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary, #aaa);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-skip-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-skip-confirm {
+  flex: 1.5;
+  background: rgba(255, 77, 109, 0.15);
+  border: 1px solid rgba(255, 77, 109, 0.4);
+  color: #ff4d6d;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-skip-confirm:hover {
+  background: #ff4d6d;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(255, 77, 109, 0.35);
 }
 </style>

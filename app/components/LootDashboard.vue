@@ -647,7 +647,6 @@ async function executeSendCustomNote() {
   
   const selectedTheme = cardThemes.find(t => t.emoji === selectedThemeEmoji.value)
   const title = `${selectedThemeEmoji.value} ${selectedTheme?.label || '自訂'}卡片`
-  const displayTitle = attachedXpToSend.value > 0 ? `${title} (附 ${attachedXpToSend.value} XP)` : title
   
   const defaultMsg = `今天也是充滿能量的一天，加油！`
   const message = customNoteMessage.value.trim() || defaultMsg
@@ -658,7 +657,7 @@ async function executeSendCustomNote() {
       body: {
         sender: buyer,
         receiver: partner,
-        rewardName: displayTitle,
+        rewardName: title,
         message: message,
         xp: attachedXpToSend.value, // 卡片本身 0 XP，只扣除所附帶的贈禮 XP
         tier: 98, // 自訂卡片特殊 Tier 98
