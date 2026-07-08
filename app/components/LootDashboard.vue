@@ -472,7 +472,7 @@ const GACHA_POOL = [
   { RewardName: '🧼 免洗碗家務保護卡', Description: '今天你最大！對方為你做一次洗碗洗鍋家務！' },
   { RewardName: '🍿 深夜宵夜請客券', Description: '放鬆時刻！對方為你準備或買單一份美味的深夜宵夜！' },
   { RewardName: '🍳 驚喜愛心早餐券', Description: '幸福早晨！對方在悠閒的假日為你親手做一份熱騰騰早餐！' },
-  { RewardName: '🛡️ 習慣免簽請假券', Description: '今天好累！贈送一張請假券，今日任務直接放行無壓力！' },
+  { RewardName: '🛒 代購跑腿服務券', Description: '今天想要什麼盡管說！對方幫你去買，免出門直接送到手上！' },
   { RewardName: '🥤 午後豪華手搖飲招待', Description: '點心時間！對方請你喝一杯你最喜歡的豪華手搖飲料！' }
 ]
 
@@ -944,6 +944,11 @@ function triggerConfetti() {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+}
+
+.giftbox-header-row .section-title {
+  margin-bottom: 0;
+  line-height: 1.2;
 }
 
 .btn-send-custom-note {

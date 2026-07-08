@@ -16,7 +16,7 @@
     <div class="panel-body">
       <!-- 分頁 1：點數存摺 (Ledger) -->
       <div v-if="activeTab === 'logs'" class="tab-content">
-        <div class="section-title">點數存摺交易明細 (LEDGER STATEMENTS)</div>
+        <div class="section-title">點數存摺交易明細</div>
         
         <div class="ledger-filter-bar">
           <select v-model="filterMode" class="ledger-filter-select">
