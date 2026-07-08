@@ -77,6 +77,10 @@
                 <span v-else-if="log.QuestId.startsWith('claim_gift_')" class="text-white">
                   收到：<span class="text-neon-gold">💌 愛心小卡贈點</span>
                 </span>
+                <!-- 情況 F：沙箱測試加點 -->
+                <span v-else-if="log.QuestId.startsWith('debug_xp_')" class="text-muted">
+                  🛠️ 沙箱測試加點
+                </span>
                 <!-- 情況 C：日常任務完成 -->
                 <span v-else class="text-white">
                   {{ getQuestName(log.QuestId) }}
@@ -668,6 +672,9 @@ const monthlyStats = computed(() => {
   flex: 1;
   padding-right: 0.5rem;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-row-bottom {

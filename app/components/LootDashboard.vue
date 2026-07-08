@@ -1574,6 +1574,7 @@ function triggerConfetti() {
   border-radius: 6px;
   cursor: pointer;
   transition: var(--transition-smooth);
+  white-space: nowrap;
 }
 
 .btn-xp-option:hover:not(:disabled) {
