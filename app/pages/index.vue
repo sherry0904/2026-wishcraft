@@ -504,6 +504,7 @@ import type { Milestone } from '~/components/LootDashboard.vue'
 
 // 狀態管理
 const route = useRoute()
+const apiFetch = useAuthAwareFetch()
 const quests = ref<Quest[]>([])
 const milestones = ref<Milestone[]>([])
 const shopItems = ref<Milestone[]>([])
@@ -932,7 +933,7 @@ async function fetchAllData(isAutoRefresh = false) {
   isFetchingData = true
 
   try {
-    const data = await $fetch<any>('/api/guild-data')
+    const data = await apiFetch<any>('/api/guild-data')
     
     // 如果在等待 API 回傳的期間，使用者點擊了任務（pendingSyncCount > 0），
     // 就必須放棄這次取得的舊資料，以免覆蓋樂觀更新的結果。
@@ -966,6 +967,7 @@ async function fetchAllData(isAutoRefresh = false) {
     lastXpVal = totalXp.value
 
   } catch (err: any) {
+    if (err?.statusCode === 401) return // onResponseError 已處理重導向，此處靜默跳過
     if (!isAutoRefresh) {
       errorMessage.value = '無法連接伺服器 API，請確認後端是否正常運作。'
       isOffline.value = true
@@ -1032,7 +1034,7 @@ async function onToggleQuest(payload: { questId: string; completed: boolean; xp:
   pendingSyncCount.value++
   syncChain = syncChain.then(async () => {
     try {
-      const res = await $fetch<any>('/api/sync-quest', {
+      const res = await apiFetch<any>('/api/sync-quest', {
         method: 'POST',
         body: {
           player: playerSnapshot,
@@ -1100,7 +1102,7 @@ async function onUseSkip(player: 'A' | 'B') {
 
   // 2. 向後端同步
   try {
-    const res = await $fetch<any>('/api/use-skip', {
+    const res = await apiFetch<any>('/api/use-skip', {
       method: 'POST',
       body: {
         player: player,
@@ -1136,7 +1138,7 @@ async function onSaveConfig(payload: { guildName: string; playerAName: string; p
   configData.value.WeeklyQuota = payload.weeklyQuota
 
   try {
-    const res = await $fetch<any>('/api/save-config', {
+    const res = await apiFetch<any>('/api/save-config', {
       method: 'POST',
       body: {
         guildName: payload.guildName,
@@ -1238,7 +1240,7 @@ async function debugAddXP(amount: number, actionKey: 'xp100' | 'xp500') {
   
   try {
     // 2. 背景默默向後端發送寫入請求 (約需要 2 秒連動 Sheets)
-    await $fetch<any>('/api/sync-quest', {
+    await apiFetch<any>('/api/sync-quest', {
       method: 'POST',
       body: {
         player: activePlayer.value,
@@ -1283,7 +1285,7 @@ async function debugCreateTestGift() {
   
   try {
     // 2. 背景發送
-    await $fetch<any>('/api/send-gift', {
+    await apiFetch<any>('/api/send-gift', {
       method: 'POST',
       body: {
         sender: partner,
@@ -1318,7 +1320,7 @@ async function debugClearAllLogs() {
   
   try {
     // 2. 進行後端與試算表清空 (在線上模式下會實時清空 Google Sheets 工作表)
-    const res = await $fetch<any>('/api/reset-db', {
+    const res = await apiFetch<any>('/api/reset-db', {
       method: 'POST'
     })
     

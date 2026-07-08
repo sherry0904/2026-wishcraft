@@ -62,6 +62,9 @@
                   <template v-else-if="log.QuestId === 'redeem_tier_8'">
                     送出：<span class="text-neon-gold">🎨 自訂驚喜券</span>
                   </template>
+                  <template v-else-if="log.QuestId === 'redeem_tier_99'">
+                    扭蛋：<span class="text-neon-gold">🎰 幸運養成扭蛋機</span>
+                  </template>
                   <template v-else>
                     兌換：<span class="text-neon-gold">{{ getRedemptionName(log.QuestId) }}</span>
                   </template>
@@ -309,8 +312,8 @@ function getQuestName(questId: string): string {
 function getRedemptionName(questId: string): string {
   const tierStr = questId.replace('redeem_tier_', '')
   const tier = Number(tierStr)
-  const item = props.shopItems.find(m => m.Tier === tier)
-  return item ? item.RewardName : '獎勵解鎖'
+  const item = props.shopItems.find(m => Number(m.Tier) === tier)
+  return item ? item.RewardName : `獎勵解鎖 (Tier ${tier})`
 }
 
 // 用於控制畫面上顯示的筆數

@@ -4,6 +4,7 @@ export const useWebPush = () => {
   const isSupported = ref(false)
   const isSubscribed = ref(false)
   const permissionGranted = ref(false)
+  const apiFetch = useAuthAwareFetch()
 
   onMounted(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -55,7 +56,7 @@ export const useWebPush = () => {
         applicationServerKey: outputArray
       })
 
-      await $fetch('/api/push/subscribe', {
+      await apiFetch('/api/push/subscribe', {
         method: 'POST',
         body: subscription
       })
@@ -82,7 +83,7 @@ export const useWebPush = () => {
         isSubscribed.value = false
         // 同步通知後端從 Google Sheets 刪除此訂閱
         try {
-          await $fetch('/api/push/unsubscribe', {
+          await apiFetch('/api/push/unsubscribe', {
             method: 'POST',
             body: { endpoint }
           })

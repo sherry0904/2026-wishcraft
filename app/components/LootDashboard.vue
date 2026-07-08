@@ -55,7 +55,7 @@
             ]"
           >
             <div class="gift-badge-top">
-              From: {{ gift.Sender === 'A' ? playerAName : playerBName }}
+              From: {{ gift.Message?.startsWith('🎰') ? '🎰 幸運扭蛋機' : (gift.Sender === 'A' ? playerAName : playerBName) }}
               <span class="gift-status-lbl">未使用</span>
             </div>
             
@@ -97,7 +97,7 @@
             ]"
           >
             <div class="gift-badge-top">
-              From: {{ gift.Sender === 'A' ? playerAName : playerBName }}
+              From: {{ gift.Message?.startsWith('🎰') ? '🎰 幸運扭蛋機' : (gift.Sender === 'A' ? playerAName : playerBName) }}
               <span class="gift-status-lbl">已使用/已讀</span>
             </div>
             
@@ -399,6 +399,7 @@ import confetti from 'canvas-confetti'
 
 const showToast = inject<any>('showToast')
 const removeToast = inject<any>('removeToast')
+const apiFetch = useAuthAwareFetch()
 
 export interface Milestone {
   Tier: number
@@ -584,7 +585,7 @@ async function executeRedeem() {
     : item.RewardName
   
   try {
-    const res = await $fetch<any>('/api/send-gift', {
+    const res = await apiFetch<any>('/api/send-gift', {
       method: 'POST',
       body: {
         sender: sender,
@@ -652,7 +653,7 @@ async function executeSendCustomNote() {
   const message = customNoteMessage.value.trim() || defaultMsg
   
   try {
-    const res = await $fetch<any>('/api/send-gift', {
+    const res = await apiFetch<any>('/api/send-gift', {
       method: 'POST',
       body: {
         sender: buyer,
@@ -710,7 +711,7 @@ async function spinGacha() {
     
     // 扭蛋獲得實體券，是由對方為我執行 (Sender = partner, Receiver = me)
     try {
-      const res = await $fetch<any>('/api/send-gift', {
+      const res = await apiFetch<any>('/api/send-gift', {
         method: 'POST',
         body: {
           sender: partner, 
@@ -755,7 +756,7 @@ async function claimGift(giftId: string) {
   const toastId = showToast ? showToast(`正在使用並兌現【${giftName}】...`, 'loading', 0) : null
   
   try {
-    const res = await $fetch<any>('/api/use-gift', {
+    const res = await apiFetch<any>('/api/use-gift', {
       method: 'POST',
       body: {
         giftId: giftId
