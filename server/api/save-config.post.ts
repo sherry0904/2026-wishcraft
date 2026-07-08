@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 
 interface SaveConfigBody {
   guildName: string;
@@ -5,48 +6,58 @@ interface SaveConfigBody {
   playerBName: string;
   aiPrompt: string;
   weeklyQuota: number;
+  comboCategory: string;
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
   const body = await readBody<SaveConfigBody>(event)
 
-  if (!body.guildName || !body.playerAName || !body.playerBName || !body.aiPrompt || body.weeklyQuota === undefined) {
+  if (!body.guildName || !body.playerAName || !body.playerBName || body.weeklyQuota === undefined) {
     throw createError({
       statusCode: 400,
       statusMessage: 'Missing required parameters'
     })
   }
 
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
-    })
-  }
-
   try {
-    // 連線模式：轉發給 Google Sheets Apps Script
-    const response = await $fetch<any>(sheetUrl, {
-      method: 'POST',
-      body: {
-        action: 'saveConfig',
-        secretToken: config.gasSecretToken,
-        guildName: body.guildName,
-        playerAName: body.playerAName,
-        playerBName: body.playerBName,
-        aiPrompt: body.aiPrompt,
-        weeklyQuota: body.weeklyQuota
-      }
-    })
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
 
-    return { success: true, response }
+    // 更新第一筆設定
+    const { data: configData } = await client.from('config').select('id').limit(1)
+    const configId = configData?.[0]?.id
+
+    if (configId) {
+      const { error } = await client.from('config')
+        .update({
+          guild_name: body.guildName,
+          player_a_name: body.playerAName,
+          player_b_name: body.playerBName,
+          ai_prompt: body.aiPrompt,
+          weekly_quota: body.weeklyQuota,
+          combo_category: body.comboCategory
+        })
+        .eq('id', configId)
+
+      if (error) throw error
+    } else {
+      const { error } = await client.from('config').insert({
+        guild_name: body.guildName,
+        player_a_name: body.playerAName,
+        player_b_name: body.playerBName,
+        ai_prompt: body.aiPrompt,
+        weekly_quota: body.weeklyQuota,
+        combo_category: body.comboCategory
+      })
+      if (error) throw error
+    }
+
+    return { success: true }
   } catch (error: any) {
-    console.error('Failed to save config to Google Sheets:', error.message)
+    console.error('Failed to save config to Supabase:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to save configuration to Google Sheets: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to save configuration to Supabase: ${error.message}`
     })
   }
 })

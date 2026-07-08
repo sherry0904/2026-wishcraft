@@ -1,4 +1,5 @@
 import webpush from 'web-push'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * POST /api/push/send-daily
@@ -14,28 +15,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  const sheetUrl = config.sheetUrl
-  if (!sheetUrl) {
-    throw createError({ statusCode: 400, statusMessage: 'Sheet URL not configured' })
-  }
-
   webpush.setVapidDetails(
     'mailto:test@example.com',
     config.public.vapidPublicKey,
     config.vapidPrivateKey
   )
 
-  // 1. 從 Sheets 撈出所有訂閱
+  const client = createClient(config.public.supabase.url, config.public.supabase.key)
+
+  // 1. 從 Supabase 撈出所有訂閱
   let subscriptions: any[] = []
   try {
-    const data = await $fetch<any>(
-      `${sheetUrl}?action=getPushSubscriptions&secretToken=${config.gasSecretToken}`,
-      { method: 'GET', timeout: 10000 }
-    )
-    subscriptions = data.subscriptions || []
+    const { data } = await client.from('push_subscriptions').select('endpoint, subscription')
+    subscriptions = data || []
   } catch (err) {
-    console.error('Failed to fetch subscriptions from Sheets:', err)
-    throw createError({ statusCode: 502, statusMessage: 'Failed to fetch subscriptions' })
+    console.error('Failed to fetch subscriptions from Supabase:', err)
+    throw createError({ statusCode: 500, statusMessage: 'Failed to fetch subscriptions' })
   }
 
   if (subscriptions.length === 0) {
@@ -74,14 +69,7 @@ export default defineEventHandler(async (event) => {
   // 4. 清除已失效的訂閱
   if (expiredEndpoints.length > 0) {
     try {
-      await $fetch<any>(sheetUrl, {
-        method: 'POST',
-        body: {
-          action: 'removeExpiredSubscriptions',
-          secretToken: config.gasSecretToken,
-          endpoints: expiredEndpoints
-        }
-      })
+      await client.from('push_subscriptions').delete().in('endpoint', expiredEndpoints)
     } catch (cleanErr) {
       console.warn('Failed to clean expired subscriptions:', cleanErr)
     }

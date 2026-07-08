@@ -55,7 +55,7 @@
             ]"
           >
             <div class="gift-badge-top">
-              From: {{ gift.Sender === 'A' ? playerAName : playerBName }}
+              {{ getGiftSourceLabel(gift, playerAName, playerBName) }}
               <span class="gift-status-lbl">未使用</span>
             </div>
             
@@ -97,7 +97,7 @@
             ]"
           >
             <div class="gift-badge-top">
-              From: {{ gift.Sender === 'A' ? playerAName : playerBName }}
+              {{ getGiftSourceLabel(gift, playerAName, playerBName) }}
               <span class="gift-status-lbl">已使用/已讀</span>
             </div>
             
@@ -532,6 +532,19 @@ const myUnusedGifts = computed(() => {
 const myUsedGifts = computed(() => {
   return myGifts.value.filter(g => g.Used || usedGiftIds.value.includes(g.Id))
 })
+
+// Helper: 根據卡片來源與留言，動態顯示寄件人標籤，解決「自己買的扭蛋/兌換卻顯示對方送的」不直覺問題
+function getGiftSourceLabel(gift: any, nameA: string, nameB: string): string {
+  if (gift.Message?.includes('幸運扭蛋機抽中')) {
+    return '來自：🎰 幸運扭蛋機'
+  }
+  if (gift.Message?.includes('自己存入的養成願望清單')) {
+    return '來自：🛒 點數商城兌換'
+  }
+  // 真實的對方贈送禮物
+  const senderName = gift.Sender === 'A' ? nameA : nameB
+  return `From：${senderName}`
+}
 
 // 根據小卡與商品屬性，自動判定按鈕文字，提供完美語意
 function getGiftButtonText(gift: any): string {

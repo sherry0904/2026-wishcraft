@@ -14,8 +14,12 @@ export default defineNuxtConfig({
     }
   },
   modules: [
-    '@vite-pwa/nuxt'
+    '@vite-pwa/nuxt',
+    '@nuxtjs/supabase'
   ],
+  supabase: {
+    redirect: false
+  },
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
@@ -62,7 +66,7 @@ export default defineNuxtConfig({
       periodicSyncForUpdates: 3600
     },
     devOptions: {
-      enabled: true,
+      enabled: false,
       suppressWarnings: true,
       navigateFallbackAllowlist: [/^\/$/],
       type: 'module',

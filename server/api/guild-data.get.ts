@@ -1,49 +1,107 @@
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
-
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
-    })
-  }
+  let quests: any[] = []
+  let milestones: any[] = []
+  let logs: any[] = []
+  let configData: any = {}
+  let shopItems: any[] = []
+  let gifts: any[] = []
 
   try {
-    // 呼叫 Google Apps Script API
-    const response = await $fetch<any>(`${sheetUrl}?action=getData&secretToken=${config.gasSecretToken}`, {
-      method: 'GET',
-      timeout: 10000 // 10秒逾時
-    })
-    
-    const finalShopItems = response.shopItems || []
-    
-    // 動態注入自訂驚喜兌現券商品，免除使用者手動修改 Sheets 欄位的負擔
-    if (Array.isArray(finalShopItems) && !finalShopItems.some((i: any) => Number(i.Tier) === 8)) {
-      finalShopItems.push({
-        Tier: 8,
-        XPThreshold: 150,
-        RewardName: '🎨 自訂驚喜兌現券',
-        Description: '花費 150 XP 自訂一張專屬券送給夥伴，內容與稱呼由你發揮！',
-        Unlocked: false
-      })
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+
+    const [
+      { data: questsRes, error: questsError },
+      { data: milestonesRes },
+      { data: logsRes },
+      { data: configRes },
+      { data: shopItemsRes },
+      { data: giftsRes }
+    ] = await Promise.all([
+      client.from('quests').select('*'),
+      client.from('milestones').select('*').order('tier'),
+      client.from('quest_logs').select('*'),
+      client.from('config').select('*').limit(1),
+      client.from('shop_items').select('*').order('tier'),
+      client.from('gifts').select('*')
+    ])
+
+    if (questsError) {
+      console.error('Supabase query error:', questsError)
     }
-    
-    return {
-      quests: response.quests || [],
-      milestones: response.milestones || [],
-      shopItems: finalShopItems,
-      gifts: response.gifts || [],
-      logs: response.logs || [],
-      config: response.config || {},
-      offline: false
+
+    // Map quests
+    quests = (questsRes || []).map(q => ({
+      Id: q.id,
+      Player: q.player,
+      Category: q.category,
+      Name: q.name,
+      Description: q.description,
+      XP: q.xp,
+      Icon: q.icon,
+      Active: q.active
+    }))
+
+    // Map milestones
+    milestones = (milestonesRes || []).map(m => ({
+      Tier: m.tier,
+      XPThreshold: m.xp_threshold,
+      RewardName: m.reward_name,
+      Description: m.description,
+      Unlocked: m.unlocked
+    }))
+
+    // Map quest_logs -> logs
+    logs = (logsRes || []).map(l => ({
+      Timestamp: l.timestamp,
+      Date: l.date,
+      Player: l.player,
+      QuestId: l.quest_id,
+      XP: l.xp,
+      IsSkipPass: l.is_skip_pass
+    }))
+
+    // Map shopItems
+    shopItems = (shopItemsRes || []).map(s => ({
+      Tier: s.tier,
+      XPThreshold: s.xp_threshold,
+      RewardName: s.reward_name,
+      Description: s.description,
+      Unlocked: s.unlocked
+    }))
+
+    // Map gifts
+    gifts = (giftsRes || []).map(g => ({
+      Id: g.id,
+      Sender: g.sender,
+      Receiver: g.receiver,
+      RewardName: g.reward_name,
+      Message: g.message,
+      Timestamp: g.timestamp,
+      Used: g.used,
+      AttachedXp: g.attached_xp,
+      UsedTimestamp: g.used_timestamp
+    }))
+
+    // Map config
+    const c = configRes?.[0] || {}
+    configData = {
+      GuildName: c.guild_name,
+      PlayerAName: c.player_a_name,
+      PlayerBName: c.player_b_name,
+      AIPrompt: c.ai_prompt,
+      WeeklyQuota: c.weekly_quota,
+      ComboCategory: c.combo_category
     }
+
+    return { quests, milestones, logs, config: configData, shopItems, gifts }
   } catch (error: any) {
-    console.error('Failed to fetch data from Google Sheets:', error.message)
+    console.error('Failed to fetch from Supabase:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to connect to Google Sheets: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to fetch database: ${error.message}`
     })
   }
 })

@@ -1,30 +1,24 @@
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
-  
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
-    })
-  }
-  
   try {
-    // 線上模式：向 Google Sheets 發送清空全部日誌的請求
-    const response = await $fetch<any>(sheetUrl, {
-      method: 'POST',
-      body: {
-        action: 'clearAllLogs',
-        secretToken: config.gasSecretToken
-      }
-    })
-    return response
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+
+    // 清空 quest_logs
+    const { error: logsError } = await client.from('quest_logs').delete().neq('id', 0)
+    if (logsError) throw logsError
+
+    // 清空 gifts
+    const { error: giftsError } = await client.from('gifts').delete().neq('id', '0')
+    if (giftsError) throw giftsError
+
+    return { success: true }
   } catch (error: any) {
-    console.error('Failed to reset Google Sheets logs:', error.message)
+    console.error('Failed to reset Supabase logs:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to reset Google Sheets logs: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to reset Supabase logs: ${error.message}`
     })
   }
 })

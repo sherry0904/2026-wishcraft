@@ -1,32 +1,36 @@
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
-  
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
-    })
-  }
-
-  let quests: any[] = []
   let logs: any[] = []
   let configData: any = {}
   
   try {
-    const response = await $fetch<any>(`${sheetUrl}?action=getData&secretToken=${config.gasSecretToken}`, {
-      method: 'GET',
-      timeout: 10000
-    })
-    quests = response.quests || []
-    logs = response.logs || []
-    configData = response.config || {}
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+    const [ { data: logsRes }, { data: configRes } ] = await Promise.all([
+      client.from('quest_logs').select('date, player, quest_id, is_skip_pass'),
+      client.from('config').select('player_a_name, player_b_name, ai_prompt').limit(1)
+    ])
+
+    logs = (logsRes || []).map(l => ({
+      Date: l.date,
+      Player: l.player,
+      QuestId: l.quest_id,
+      IsSkipPass: l.is_skip_pass
+    }))
+    
+    const c = configRes?.[0] || {}
+    configData = {
+      PlayerAName: c.player_a_name,
+      PlayerBName: c.player_b_name,
+      AIPrompt: c.ai_prompt
+    }
+
   } catch (err: any) {
-    console.error('Recap API failed to fetch from Sheets:', err.message)
+    console.error('Recap API failed to fetch from Supabase:', err.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to fetch data from Google Sheets for recap: ${err.message}`
+      statusCode: 500,
+      statusMessage: `Failed to fetch data from Supabase for recap: ${err.message}`
     })
   }
   
@@ -48,27 +52,29 @@ export default defineEventHandler(async (event) => {
   const aDone = logs.filter(l => {
     const logDateStr = l.Date ? String(l.Date).substring(0, 10) : ''
     return l.Player === 'A' && 
-      l.QuestId !== 'skip' && 
-      !l.QuestId.startsWith('redeem_') &&
+      l.QuestId !== '請假券' && 
+      !l.QuestId.startsWith('兌換：') &&
+      !l.QuestId.startsWith('送出') &&
       logDateStr >= startOfWeekStr
   }).length
 
   const bDone = logs.filter(l => {
     const logDateStr = l.Date ? String(l.Date).substring(0, 10) : ''
     return l.Player === 'B' && 
-      l.QuestId !== 'skip' && 
-      !l.QuestId.startsWith('redeem_') &&
+      l.QuestId !== '請假券' && 
+      !l.QuestId.startsWith('兌換：') &&
+      !l.QuestId.startsWith('送出') &&
       logDateStr >= startOfWeekStr
   }).length
   
-  const playerA = (configData.PlayerAName as string) || '萱'
-  const playerB = (configData.PlayerBName as string) || '至'
+  const playerA = (configData.PlayerAName as string) || '玩家 A'
+  const playerB = (configData.PlayerBName as string) || '玩家 B'
   
   // 4. 讀取並格式化 AI 提示詞
   let promptTemplate = (configData.AIPrompt as string) || 
     '請根據本週數據：{PlayerA} 完成了 {A_completed} 項任務，{PlayerB} 完成了 {B_completed} 項任務。請以輕鬆、溫馨且鼓勵性的冒險戰報口吻，撰寫一篇 100 字內的每週進度戰報總結，並給予雙方熱血與實用的鼓勵，語系使用台灣繁體中文。'
     
-  // 代換變數：支持大括號格式，也支持 Google 試算表預設的純英文詞 (不分大小寫)
+  // 代換變數：支持大括號格式，也支持原本預設的純英文詞 (不分大小寫)
   let prompt = promptTemplate
     .replace(/{PlayerA}/g, playerA)
     .replace(/{PlayerB}/g, playerB)
@@ -83,8 +89,8 @@ export default defineEventHandler(async (event) => {
   if (!apiKey) {
     // 降級處理：若無 API Key，隨機產出高品質模擬戰報，提示使用者如何啟用
     const mockRecaps = [
-      `【每週冒險戰報 🤖】\n本週 ${playerA} 勇往直前完成了 ${aDone} 項日常養成！${playerB} 也默默努力完成了 ${bDone} 項目標！雙方的習慣默契正逐步萌芽。繼續攜手堅持，下一個解鎖的商店約會大餐就在不遠處！\n\n*(提示：您的 Google Sheets 已成功連線！如需啟用真實 AI 戰報，請在 .env 中額外填寫 GEMINI_API_KEY 即可。)*`,
-      `【習慣冒險戰報 🤖】\n本週養成總結：${playerA} 完成了 ${aDone} 次挑戰，而 ${playerB} 累積完成了 ${bDone} 次！這是一段溫馨且自律的習慣旅程，感謝雙方在健康上的每一步跨越。下週繼續保持！\n\n*(提示：您的 Google Sheets 已成功連線！如需啟用真實 AI 戰報，請在 .env 中額外填寫 GEMINI_API_KEY 即可。)*`
+      `【每週冒險戰報 🤖】\n本週 ${playerA} 勇往直前完成了 ${aDone} 項日常養成！${playerB} 也默默努力完成了 ${bDone} 項目標！雙方的習慣默契正逐步萌芽。繼續攜手堅持，下一個解鎖的商店約會大餐就在不遠處！\n\n*(提示：您的 Supabase 已成功連線！如需啟用真實 AI 戰報，請在 .env 中額外填寫 GEMINI_API_KEY 即可。)*`,
+      `【習慣冒險戰報 🤖】\n本週養成總結：${playerA} 完成了 ${aDone} 次挑戰，而 ${playerB} 累積完成了 ${bDone} 次！這是一段溫馨且自律的習慣旅程，感謝雙方在健康上的每一步跨越。下週繼續保持！\n\n*(提示：您的 Supabase 已成功連線！如需啟用真實 AI 戰報，請在 .env 中額外填寫 GEMINI_API_KEY 即可。)*`
     ]
     const randomRecap = mockRecaps[Math.floor(Math.random() * mockRecaps.length)]
     

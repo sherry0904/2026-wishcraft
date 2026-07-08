@@ -1,52 +1,59 @@
+import { createClient } from '@supabase/supabase-js'
 
 interface SyncQuestBody {
+  date: string;
   player: 'A' | 'B';
   questId: string;
-  date: string; // YYYY-MM-DD
-  completed: boolean;
   xp: number;
+  completed?: boolean;
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
   const body = await readBody<SyncQuestBody>(event)
 
-  if (!body.player || !body.questId || !body.date) {
+  if (!body.date || !body.player || !body.questId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing required parameters: player, questId, date'
-    })
-  }
-
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+      statusMessage: 'Missing required parameters: date, player, questId'
     })
   }
 
   try {
-    // 轉發給 Google Apps Script
-    const response = await $fetch<any>(sheetUrl, {
-      method: 'POST',
-      body: {
-        action: 'toggleQuest',
-        secretToken: config.gasSecretToken,
-        player: body.player,
-        questId: body.questId,
-        date: body.date,
-        xp: body.xp,
-        completed: body.completed
-      }
-    })
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
 
-    return { success: true, response }
+    if (body.completed === false) {
+      // 刪除打卡紀錄
+      const { error } = await client.from('quest_logs')
+        .delete()
+        .eq('date', body.date)
+        .eq('player', body.player)
+        .eq('quest_id', body.questId)
+        .eq('is_skip_pass', false)
+
+      if (error) throw error
+    } else {
+      // 新增打卡紀錄
+      const timestampStr = new Date().toISOString()
+
+      const { error } = await client.from('quest_logs').insert({
+        timestamp: timestampStr,
+        date: body.date,
+        player: body.player,
+        quest_id: body.questId,
+        xp: body.xp,
+        is_skip_pass: false
+      })
+
+      if (error) throw error
+    }
+
+    return { success: true }
   } catch (error: any) {
-    console.error('Failed to sync quest to Google Sheets:', error.message)
+    console.error('Failed to sync quest to Supabase:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to sync quest to Google Sheets: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to sync quest to Supabase: ${error.message}`
     })
   }
 })

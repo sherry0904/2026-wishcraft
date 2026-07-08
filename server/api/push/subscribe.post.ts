@@ -1,10 +1,10 @@
 import webpush from 'web-push'
+import { createClient } from '@supabase/supabase-js'
 
 export default defineEventHandler(async (event) => {
   try {
     const subscription = await readBody(event)
     const config = useRuntimeConfig()
-    const sheetUrl = config.sheetUrl
 
     const publicVapidKey = config.public.vapidPublicKey
     const privateVapidKey = config.vapidPrivateKey
@@ -15,22 +15,16 @@ export default defineEventHandler(async (event) => {
       privateVapidKey
     )
 
-    // 1. 將訂閱資料儲存到 Google Sheets（PushSubscriptions tab）
-    if (sheetUrl) {
-      try {
-        await $fetch<any>(sheetUrl, {
-          method: 'POST',
-          body: {
-            action: 'savePushSubscription',
-            secretToken: config.gasSecretToken,
-            endpoint: subscription.endpoint,
-            subscription: JSON.stringify(subscription)
-          }
-        })
-      } catch (saveError) {
-        // 儲存失敗不影響測試通知，僅記錄警告
-        console.warn('Failed to save push subscription to Sheets:', saveError)
-      }
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+
+    // 1. 將訂閱資料儲存到 Supabase (Upsert：如果 endpoint 已存在則更新)
+    const { error: saveError } = await client.from('push_subscriptions').upsert({
+      endpoint: subscription.endpoint,
+      subscription: subscription
+    })
+
+    if (saveError) {
+      console.warn('Failed to save push subscription to Supabase:', saveError)
     }
 
     // 2. 發送測試通知（讓使用者確認已成功訂閱）

@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 
 interface UseSkipBody {
   player: 'A' | 'B';
@@ -5,8 +6,6 @@ interface UseSkipBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
   const body = await readBody<UseSkipBody>(event)
 
   if (!body.player || !body.date) {
@@ -16,30 +15,28 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!sheetUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
-    })
-  }
-
   try {
-    const response = await $fetch<any>(sheetUrl, {
-      method: 'POST',
-      body: {
-        action: 'useSkip',
-        secretToken: config.gasSecretToken,
-        player: body.player,
-        date: body.date
-      }
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+    const timestampStr = new Date().toISOString()
+
+    const { error } = await client.from('quest_logs').insert({
+      timestamp: timestampStr,
+      date: body.date,
+      player: body.player,
+      quest_id: 'skip',
+      xp: 0,
+      is_skip_pass: true
     })
 
-    return { success: true, response }
+    if (error) throw error
+
+    return { success: true }
   } catch (error: any) {
-    console.error('Failed to post useSkip to Google Sheets:', error.message)
+    console.error('Failed to post useSkip to Supabase:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to use skip ticket on Google Sheets: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to use skip ticket on Supabase: ${error.message}`
     })
   }
 })

@@ -966,6 +966,11 @@ async function fetchAllData(isAutoRefresh = false) {
     lastXpVal = totalXp.value
 
   } catch (err: any) {
+    if (err.response?.status === 401) {
+      useCookie('wishcraft_auth_state').value = null
+      window.location.href = '/auth'
+      return
+    }
     if (!isAutoRefresh) {
       errorMessage.value = '無法連接伺服器 API，請確認後端是否正常運作。'
       isOffline.value = true

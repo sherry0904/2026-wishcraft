@@ -1,32 +1,39 @@
+import { createClient } from '@supabase/supabase-js'
+
+interface UseGiftBody {
+  giftId: string;
+}
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<any>(event)
-  const config = useRuntimeConfig()
-  const sheetUrl = config.sheetUrl
-  
-  if (!sheetUrl) {
+  const body = await readBody<UseGiftBody>(event)
+
+  if (!body.giftId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Google Sheets URL is not configured. Database connection is required.'
+      statusMessage: 'Missing giftId'
     })
   }
 
   try {
-    // 1. 線上模式：向 Google Sheets 送出使用禮物要求
-    const response = await $fetch<any>(sheetUrl, {
-      method: 'POST',
-      body: {
-        action: 'useGift',
-        secretToken: config.gasSecretToken,
-        giftId: body.giftId
-      }
-    })
-    return response
+    const config = useRuntimeConfig()
+    const client = createClient(config.public.supabase.url, config.public.supabase.key)
+    const timestampStr = new Date().toISOString()
+
+    const { error } = await client.from('gifts')
+      .update({ 
+        used: true,
+        used_timestamp: timestampStr
+      })
+      .eq('id', body.giftId)
+
+    if (error) throw error
+
+    return { success: true }
   } catch (error: any) {
-    console.error('Failed to claim gift on Google Sheets:', error.message)
+    console.error('Failed to update gift to Supabase:', error.message)
     throw createError({
-      statusCode: 502,
-      statusMessage: `Failed to claim gift on Google Sheets: ${error.message}`
+      statusCode: 500,
+      statusMessage: `Failed to use gift: ${error.message}`
     })
   }
 })

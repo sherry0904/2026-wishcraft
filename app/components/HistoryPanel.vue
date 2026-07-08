@@ -239,6 +239,28 @@ function parseToLocalDateStr(dateVal: any): string {
   return dateStr.substring(0, 10)
 }
 
+function parseLegacyTimestamp(ts: string): number {
+  if (!ts) return Date.now()
+  if (ts.includes('T')) return new Date(ts).getTime()
+  
+  let cleanTs = ts
+  if (ts.includes(' 上午 ')) {
+    cleanTs = ts.replace(' 上午 ', ' ')
+  } else if (ts.includes(' 下午 ')) {
+    const parts = ts.split(' 下午 ')
+    if (parts.length === 2) {
+      const timeParts = parts[1].split(':')
+      let h = parseInt(timeParts[0], 10)
+      if (h < 12) h += 12
+      timeParts[0] = h.toString().padStart(2, '0')
+      cleanTs = parts[0] + ' ' + timeParts.join(':')
+    }
+  }
+  
+  const d = new Date(cleanTs)
+  return isNaN(d.getTime()) ? Date.now() : d.getTime()
+}
+
 function getActiveCombosForDate(dateStr: string): string[] {
   const categories = props.comboCategories || ['飲水']
   const dayLogs = props.logs.filter(l => parseToLocalDateStr(l.Date) === dateStr)
@@ -291,7 +313,8 @@ function formatLocalDate(dateVal: any): string {
 function formatLocalTime(timestamp: string): string {
   if (!timestamp) return ''
   try {
-    const d = new Date(timestamp)
+    const d = new Date(parseLegacyTimestamp(timestamp))
+    if (isNaN(d.getTime())) return ''
     const hrs = String(d.getHours()).padStart(2, '0')
     const mins = String(d.getMinutes()).padStart(2, '0')
     return `${hrs}:${mins}`
@@ -309,8 +332,12 @@ function getQuestName(questId: string): string {
 function getRedemptionName(questId: string): string {
   const tierStr = questId.replace('redeem_tier_', '')
   const tier = Number(tierStr)
+  
+  if (tier === 99) return '🎰 幸運扭蛋'
+  if (tier === 8) return '🎨 自訂驚喜券'
+  
   const item = props.shopItems.find(m => m.Tier === tier)
-  return item ? item.RewardName : '獎勵解鎖'
+  return item ? item.RewardName : `未知的兌換項目`
 }
 
 // 用於控制畫面上顯示的筆數
@@ -349,12 +376,12 @@ const sortedLogs = computed(() => {
     
     if (log.Player === 'A') {
       logsByDateAndPlayer[dateStr].A += Number(log.XP) || 0
-      if (!logsByDateAndPlayer[dateStr].timestampA || new Date(log.Timestamp).getTime() > new Date(logsByDateAndPlayer[dateStr].timestampA).getTime()) {
+      if (!logsByDateAndPlayer[dateStr].timestampA || parseLegacyTimestamp(log.Timestamp) > parseLegacyTimestamp(logsByDateAndPlayer[dateStr].timestampA)) {
         logsByDateAndPlayer[dateStr].timestampA = log.Timestamp
       }
     } else if (log.Player === 'B') {
       logsByDateAndPlayer[dateStr].B += Number(log.XP) || 0
-      if (!logsByDateAndPlayer[dateStr].timestampB || new Date(log.Timestamp).getTime() > new Date(logsByDateAndPlayer[dateStr].timestampB).getTime()) {
+      if (!logsByDateAndPlayer[dateStr].timestampB || parseLegacyTimestamp(log.Timestamp) > parseLegacyTimestamp(logsByDateAndPlayer[dateStr].timestampB)) {
         logsByDateAndPlayer[dateStr].timestampB = log.Timestamp
       }
     }
@@ -373,7 +400,7 @@ const sortedLogs = computed(() => {
             XP: bonusA,
             Player: 'A',
             Date: dateStr,
-            Timestamp: new Date(new Date(data.timestampA).getTime() + 1000).toISOString(),
+            Timestamp: new Date(parseLegacyTimestamp(data.timestampA) + 1000).toISOString(),
             comboMult: mult
           })
         }
@@ -386,7 +413,7 @@ const sortedLogs = computed(() => {
             XP: bonusB,
             Player: 'B',
             Date: dateStr,
-            Timestamp: new Date(new Date(data.timestampB).getTime() + 1000).toISOString(),
+            Timestamp: new Date(parseLegacyTimestamp(data.timestampB) + 1000).toISOString(),
             comboMult: mult
           })
         }
@@ -395,7 +422,7 @@ const sortedLogs = computed(() => {
   })
 
   const allLogs = [...baseLogs, ...virtualLogs].sort((a, b) => {
-    return new Date(a.Timestamp).getTime() - new Date(b.Timestamp).getTime()
+    return parseLegacyTimestamp(a.Timestamp) - parseLegacyTimestamp(b.Timestamp)
   })
 
   let balanceA = 0

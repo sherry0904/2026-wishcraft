@@ -3,13 +3,12 @@ export default defineEventHandler(async (event) => {
   if (event.path.startsWith('/api/') && !event.path.startsWith('/api/auth')) {
     const config = useRuntimeConfig()
     
-    // 檢查 HttpOnly Session
-    const session = await useSession(event, { password: config.sessionPassword })
+    const token = getCookie(event, 'wishcraft_token')
     
-    if (!session.data.verified) {
+    if (token !== config.passcode) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Unauthorized. 尚未登入或 Session 已過期。'
+        statusMessage: 'Unauthorized. 尚未登入或密碼無效。'
       })
     }
   }
