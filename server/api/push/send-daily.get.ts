@@ -2,7 +2,7 @@ import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * POST /api/push/send-daily
+ * GET /api/push/send-daily
  * 由 Vercel Cron Job 每晚 21:00（台灣時間）觸發，提醒使用者記得填寫今日任務。
  */
 export default defineEventHandler(async (event) => {
