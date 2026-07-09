@@ -302,7 +302,7 @@
         <div v-if="showCustomNoteModal" class="modal-overlay">
           <div class="modal-card game-card custom-note-modal">
             <h3 class="modal-title text-neon-gold">💌 寫張愛心小卡給夥伴</h3>
-            <p class="modal-text">寫下你想對夥伴說的話。如果想贈送點數，也可以自由附帶（從您錢包扣除並充值進夥伴錢包）。</p>
+            <p class="modal-text">寫下你想對夥伴說的話。如果想贈送點數，也可以自由附帶（從您錢包扣除並加值進夥伴錢包）。</p>
             
             <!-- 主題圖標選擇 -->
             <div class="theme-selection-area">
@@ -516,7 +516,14 @@ watch(() => props.gifts, () => {
     return g ? !g.Used : false
   })
   optimisticGifts.value = optimisticGifts.value.filter(og => {
-    return !props.gifts.some(g => g.Id === og.Id)
+    return !props.gifts.some(g => {
+      if (g.Id === og.Id) return true
+      if (g.RewardName === og.RewardName && g.Message === og.Message) {
+        const timeDiff = Math.abs(new Date(g.Timestamp).getTime() - new Date(og.Timestamp).getTime())
+        if (timeDiff < 60000) return true // 60秒內的相同名稱與留言，視為已同步
+      }
+      return false
+    })
   })
 }, { deep: true })
 
