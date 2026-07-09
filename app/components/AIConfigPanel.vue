@@ -84,9 +84,13 @@
           :disabled="isSaving" 
           @click="onSave"
         >
-          {{ isSaving ? '同步中...' : '儲存並同步至試算表' }}
+          {{ isSaving ? '儲存中...' : '儲存設定' }}
         </button>
-        <span v-if="saveSuccess" class="save-success-msg">儲存成功！已同步 ✅</span>
+        <span v-if="saveSuccess" class="save-success-msg">儲存成功！✅</span>
+      </div>
+
+      <div class="data-source-badge">
+        ⚡️ 系統資料庫：Supabase (正式版)
       </div>
     </div>
   </div>
@@ -344,5 +348,16 @@ function onSave() {
 @keyframes pulse-green {
   from { opacity: 0.7; }
   to { opacity: 1; }
+}
+
+.data-source-badge {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  text-align: center;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
 }
 </style>
