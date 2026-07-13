@@ -31,7 +31,7 @@
       <div class="skip-pass-section">
         <div class="quota-label">
           <span>本週請假券</span>
-          <span class="quota-count">剩餘 {{ 2 - playerASkipsUsed }} 次</span>
+          <span class="quota-count">剩餘 {{ weeklyQuota - playerASkipsUsed }} 次</span>
         </div>
         <div class="skip-status">
           <span v-if="playerAHasSkipped" class="badge-skipped">
@@ -132,7 +132,7 @@
       <div class="skip-pass-section">
         <div class="quota-label">
           <span>本週請假券</span>
-          <span class="quota-count">剩餘 {{ 2 - playerBSkipsUsed }} 次</span>
+          <span class="quota-count">剩餘 {{ weeklyQuota - playerBSkipsUsed }} 次</span>
         </div>
         <div class="skip-status">
           <span v-if="playerBHasSkipped" class="badge-skipped">
@@ -184,6 +184,7 @@ const props = defineProps<{
   activePlayer: 'A' | 'B' | null
   playerAName: string
   playerBName: string
+  weeklyQuota: number
   // 玩家 A 數據
   playerAQuestsDone: number
   playerAQuestsTotal: number
@@ -246,8 +247,8 @@ function canUseSkip(player: 'A' | 'B'): boolean {
   if (props.activePlayer !== player) return false
   if (player === 'A' && props.playerAHasSkipped) return false
   if (player === 'B' && props.playerBHasSkipped) return false
-  if (player === 'A' && props.playerASkipsUsed >= 2) return false
-  if (player === 'B' && props.playerBSkipsUsed >= 2) return false
+  if (player === 'A' && props.playerASkipsUsed >= props.weeklyQuota) return false
+  if (player === 'B' && props.playerBSkipsUsed >= props.weeklyQuota) return false
   
   return true
 }
