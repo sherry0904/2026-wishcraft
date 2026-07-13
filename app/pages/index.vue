@@ -676,13 +676,13 @@ const playerBQuestsTotal = computed(() => quests.value.filter(q => (q.Player ===
 const playerAQuestsDone = computed(() => completedQuestsAToday.value.length)
 const playerBQuestsDone = computed(() => completedQuestsBToday.value.length)
 
-// 4. 計算本週已使用的請假券次數 (週一開始)
+// 4. 計算所選日期當週已使用的請假券次數 (週一開始)
 function getSkipsUsedThisWeek(player: 'A' | 'B'): number {
-  const today = new Date(todayStr)
-  const startOfWeek = new Date(today)
-  const dayOfWeek = today.getDay() // 0=週日, 1=週一, ..., 6=週六
+  const selectedDate = new Date(selectedDateStr.value)
+  const startOfWeek = new Date(selectedDate)
+  const dayOfWeek = selectedDate.getDay() // 0=週日, 1=週一, ..., 6=週六
   const daysFromMonday = (dayOfWeek + 6) % 7 // 週一=0, 週二=1, ..., 週日=6
-  startOfWeek.setDate(today.getDate() - daysFromMonday)
+  startOfWeek.setDate(selectedDate.getDate() - daysFromMonday)
   startOfWeek.setHours(0, 0, 0, 0)
 
   return logs.value.filter(l => 
