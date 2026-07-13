@@ -687,7 +687,7 @@ function getSkipsUsedThisWeek(player: 'A' | 'B'): number {
 
   return logs.value.filter(l => 
     l.Player === player && 
-    l.IsSkipPass && 
+    (l.IsSkipPass || l.QuestId === 'skip') && 
     new Date(parseToLocalDateStr(l.Date)) >= startOfWeek
   ).length
 }
