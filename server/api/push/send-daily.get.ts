@@ -10,9 +10,11 @@ export default defineEventHandler(async (event) => {
 
   // 安全檢查：只接受 Vercel Cron 帶的 Authorization header
   const authHeader = getHeader(event, 'authorization')
-  const cronSecret = config.cronSecret
+  const cronSecret = process.env.CRON_SECRET || config.cronSecret
+  
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    console.error(`Cron Auth failed. Expected: Bearer ${cronSecret}, Got: ${authHeader}`)
+    throw createError({ statusCode: 401, message: 'Unauthorized' })
   }
 
   webpush.setVapidDetails(
